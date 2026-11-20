@@ -7,9 +7,13 @@ Java 21 · Spring Boot 4.1.2 · Maven · plain-JS page, no build step · games k
 
 ## Running it
 
+    run.ps1          (or run.bat)
+    open http://localhost:8080/dawn/
+
+Or build one jar and run it:
+
     mvn package
     java -jar dawn-app/target/dawn-of-mankind.jar
-    open http://localhost:8080/dawn/
 
 Create a room, share the 5-letter code (or the invite link), and start when everyone is in. A player who closes the
 page can come back to the same seat from the same browser; after 60 seconds away their turns are passed for them.
