@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Same parent as conlang-web, so the modules drop into it without version clashes -->
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>4.1.2</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.dawnofmankind</groupId>
+  <artifactId>dawn-of-mankind</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+  <name>Dawn of Mankind</name>
+  <description>Co-operative browser card game: build a civilization from the Prehistoric era onwards</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <modules>
+    <module>dawn-core</module>
+    <module>dawn-web</module>
+    <module>dawn-app</module>
+  </modules>
+</project>
