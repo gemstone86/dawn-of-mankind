@@ -67,6 +67,12 @@ label { display: block; font-size: .85rem; color: var(--bone-dim); margin: .6rem
 .cardx.action { border-left: 3px solid var(--production); }
 .cardx.response { border-left: 3px solid var(--moss); }
 .cardx.minor_wonder { border-left: 3px solid var(--brass); }
+.queue-strip { margin: .8rem .8rem 0; }
+.queue-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }
+.queue-row { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .3rem; align-items: stretch; }
+.queue-row .cardx { flex: 0 0 210px; display: flex; flex-direction: column; }
+.queue-row .cardx .actions { margin-top: auto; padding-top: .3rem; }
+.queue-ends { display: flex; justify-content: space-between; font-size: .8rem; color: var(--bone-dim); margin-top: .2rem; }
 .facedown { font-size: .75rem; color: var(--brass); }
 .slotno { position: absolute; right: .5rem; top: .35rem; font-size: .75rem; color: var(--bone-dim); }
 .leaving { outline: 1px dashed var(--err); }

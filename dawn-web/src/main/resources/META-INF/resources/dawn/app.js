@@ -179,15 +179,17 @@ function cardHtml(c, extra = '', cls = '') {
 }
 
 function renderQueue() {
-  const s = state, leaving = s.queueRemoved;
+  // the queue runs right to left: new cards come in on the right, the leftmost cards leave at the end of the round
+  const s = state, leaving = s.queueRemoved, n = s.queue.length;
   const items = s.queue.map((c, i) => {
-    const isLeaving = i >= s.queue.length - leaving;
+    const isLeaving = i >= n - leaving;
     const fd = c.faceDown ? '<div class="facedown">+ a face-down card underneath</div>' : '';
     const btn = `<div class="actions"><button ${canAct() ? '' : 'disabled'} data-pick="${i}">${c.type === 'event' ? 'Take on (1 action)' : 'Pick (1 action)'}</button></div>`;
-    return cardHtml(c, `<span class="slotno">${i + 1}</span>${fd}${btn}`, isLeaving ? 'leaving' : '');
-  }).join('');
-  $('queuePanel').innerHTML = `<h2>Card queue</h2><p class="muted small">Top to bottom. At the end of the round the bottom ${leaving} card${leaving > 1 ? 's' : ''} (dashed) leave${leaving > 1 ? '' : 's'}; events that leave go to the future deck.</p>
-    <div class="cards">${items || '<p class="muted">The queue is empty.</p>'}</div>`;
+    return cardHtml(c, `${fd}${btn}`, isLeaving ? 'leaving' : '');
+  }).reverse().join('');
+  $('queuePanel').innerHTML = `<div class="queue-head"><h2>Card queue</h2><span class="muted small">At the end of the round the ${leaving} leftmost card${leaving > 1 ? 's' : ''} (dashed) leave${leaving > 1 ? '' : 's'}; events that leave go to the future deck.</span></div>
+    <div class="queue-row">${items || '<p class="muted">The queue is empty.</p>'}</div>
+    <div class="queue-ends"><span>← leaves here</span><span>new cards come in here →</span></div>`;
 }
 $('queuePanel').onclick = e => { const b = e.target.closest('[data-pick]'); if (b) send({ type: 'pick', slot: +b.dataset.pick }); };
 
