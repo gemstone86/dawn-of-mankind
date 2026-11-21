@@ -220,6 +220,7 @@ eras:
       send_scouts: 1
       settle_land: 3
       core_territory: 1
+      new_trading_route: 2
       # responses
       rally_the_hunters: 2
       hide_in_the_caves: 1
@@ -253,6 +254,7 @@ eras:
       great_library: 1
       great_lighthouse: 1
       colossus: 1
+      roman_roads: 1
       hostility_2: 2
       hostility_3: 2
       hostility_5: 1
@@ -278,6 +280,7 @@ eras:
       send_scouts: 1
       settle_land: 3
       core_territory: 2
+      new_trading_route: 3
       city_walls: 2
       bronze_levy: 1
       quarantine: 1
@@ -286,6 +289,8 @@ eras:
       epic: 1
       barbarian_raid: 2
       chariot_raiders: 1
+      hill_tribes: 1
+      nomad_empire: 1
       sea_peoples: 1
       drought: 1
       earthquake: 1
@@ -323,6 +328,7 @@ startingEvents:
 
 # Crisis cards: kept apart, added to the future deck only by other events or when a player's Population hits 0.
 crisisCards: [black_plague, supervolcano, meteor_impact, climate_change]
+# (Rise of a Nomad Empire and the Sea Peoples are crisis cards in the Ancient era deck.)
 
 cards:
   # ------------------------------------------------------------------ technologies (cost research + resources)
@@ -611,6 +617,18 @@ cards:
     effects: [{income: {culture: 1}}, {handLimit: 1}]
     text: +1 culture per turn, +1 max hand size.
 
+  new_trading_route:
+    name: New Trading Route
+    type: action
+    effects: [{trade: [food, production, research]}]
+    text: Send any amount of food, production and research to one teammate. (Resources can't be given otherwise.)
+  roman_roads:
+    name: Roman Roads
+    type: minor_wonder
+    cost: {production: 4, culture: 2, influence: 1}
+    effects: [{giveCards: 2}]
+    text: You may give up to 2 cards to a teammate for 1 action. (Without roads, cards can't be given.)
+
   # ------------------------------------------------------------------ events
   # kind: raid (one player defends alone), invasion (everyone may send troops), test (a stat against a threshold),
   #       opportunity (the target may pay for a benefit), effects (just happens). target: one | each | civ.
@@ -744,8 +762,8 @@ cards:
     strength: 5
     perShortfall: [{lose: {food: 1, production: 1, culture: 1}}]
     text: Raid, strength 5. Each point short costs 1 food, 1 production and 1 culture.
-  sea_peoples:
-    name: The Sea Peoples
+  hill_tribes:
+    name: The Hill Tribes Invade
     type: event
     category: invasion
     kind: invasion
@@ -920,33 +938,92 @@ cards:
     text: +5 enemies massing. The next invasion brings them.
 
   # ------------------------------------------------------------------ crisis cards
+  # Crises last: they act when they resolve and again in each following events phase ("lasts"), until their rounds
+  # run out or their end condition is met.
   black_plague:
     name: Black Plague
     type: event
     crisis: true
     category: plague
-    kind: test
-    stat: health
-    threshold: 8
     target: civ
-    perShortfall: [{population: -1}]
-    text: "CRISIS. Health test 8: each point short costs the civilization 1 Population. Medicine halves it."
+    lasts:
+      rounds: 3
+      endWhen: {health: 8}
+      everyRound: [{healthTest: {threshold: 8, populationLoss: 1}}]
+    text: "CRISIS, up to 3 rounds. Each round: health test 8, each point short costs the civilization 1 Population. Ends early once Health reaches 8. Medicine halves it."
   supervolcano:
     name: Supervolcano Eruption
     type: event
     crisis: true
     category: catastrophe
     target: each
-    effects: [{lose: {food: 4, production: 4}}, {destroyBuilding: 1}, {stability: -2}]
-    text: CRISIS. Every player loses 4 food, 4 production and a building level. -2 Stability.
+    lasts:
+      rounds: 3
+      stages:
+        - [{lose: {food: 4, production: 4}}, {destroyBuilding: 1}, {stability: -2}]
+        - [{lose: {food: 2}}]
+        - [{lose: {food: 2}}]
+    text: "CRISIS, 3 rounds. First: every player loses 4 food, 4 production and a building level, -2 Stability. Then two rounds of ash winter: every player loses 2 food."
   meteor_impact:
     name: Meteor Impact
     type: event
     crisis: true
     category: catastrophe
     target: civ
-    effects: [{population: -4}, {lose: {production: 3}}, {stability: -2}]
-    text: CRISIS. The civilization loses 4 Population; every player loses 3 production. -2 Stability.
+    lasts:
+      rounds: 2
+      stages:
+        - [{population: -4}, {lose: {production: 3}}, {stability: -2}]
+        - [{stability: -1}, {lose: {food: 1}}]
+    text: "CRISIS, 2 rounds. First: the civilization loses 4 Population, every player 3 production, -2 Stability. Then: -1 Stability, every player loses 1 food."
+  nomad_empire:
+    name: Rise of a Nomad Empire
+    type: event
+    crisis: true
+    category: invasion
+    lasts:
+      rounds: 10
+      everyRound: [{threat: 2}, {invadeIfStronger: nomad_invasion}]
+    text: "CRISIS, 10 rounds. Each round +2 enemies mass. Whenever they outnumber the tribe's military strength, they invade at once."
+  sea_peoples:
+    name: The Sea Peoples
+    type: event
+    crisis: true
+    category: invasion
+    lasts:
+      rounds: 2
+      stages:
+        - [{raidAll: {card: sea_peoples_raid, strength: 8}}]
+        - [{invasion: sea_peoples_invasion}]
+    text: "CRISIS, 2 rounds. First a double-strength raid (8) on every player, then an invasion."
+  # the raids and invasions crises send (not in any deck)
+  nomad_invasion:
+    name: Nomad Horde
+    type: event
+    helper: true
+    category: invasion
+    kind: invasion
+    strength: {perPlayerPerTerritory: 1}
+    perShortfall: [{lose: {food: 1, production: 1}}]
+    text: Invasion by the nomad empire, strength = players × territories + the massed enemies.
+  sea_peoples_raid:
+    name: Sea Peoples' Raid
+    type: event
+    helper: true
+    category: raid
+    kind: raid
+    strength: 8
+    perShortfall: [{lose: {food: 1, production: 1}}]
+    text: Raid, strength 8. Each point short costs 1 food and 1 production.
+  sea_peoples_invasion:
+    name: Sea Peoples' Landing
+    type: event
+    helper: true
+    category: invasion
+    kind: invasion
+    strength: {perPlayerPerTerritory: 1}
+    perShortfall: [{lose: {food: 1, production: 1}}]
+    text: Invasion by the Sea Peoples, strength = players × territories + the massed enemies.
   climate_change:
     name: Climate Change
     type: event

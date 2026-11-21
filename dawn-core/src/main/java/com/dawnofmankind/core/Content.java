@@ -68,6 +68,21 @@ public final class Content {
         public List<Map<String, Object>> ongoing = new ArrayList<>();
         public EnumMap<Res, Integer> cleanseCost;
         public boolean eraTrigger, crisis, persistent;
+        /** Only used inside a crisis (its raids and invasions); never in a deck or the past events. */
+        public boolean helper;
+        /**
+         * A crisis that lasts: it acts when it resolves and again in every following events phase, for up to
+         * {@code lastsRounds} rounds or until {@code endWhen} is met. Round i uses {@code stages[i]} (if any) plus
+         * {@code everyRound}.
+         */
+        public int lastsRounds;
+        public List<List<Map<String, Object>>> stages = new ArrayList<>();
+        public List<Map<String, Object>> everyRound = new ArrayList<>();
+        public Map<String, Object> endWhen = Map.of();
+
+        public boolean lasts() {
+            return lastsRounds > 0;
+        }
 
         public boolean isEvent() {
             return type == CardType.EVENT;
@@ -258,6 +273,12 @@ public final class Content {
         c.ongoing = effects(pers.get("ongoing"));
         c.cleanseCost = Res.parse(pers.get("cleanse"));
         c.eraTrigger = Y.b(m, "eraTrigger");
+        c.helper = Y.b(m, "helper");
+        Map<String, Object> lasts = Y.map(m.get("lasts"));
+        c.lastsRounds = Y.i(lasts, "rounds", 0);
+        for (Object stage : Y.list(lasts.get("stages"))) c.stages.add(effects(stage));
+        c.everyRound = effects(lasts.get("everyRound"));
+        c.endWhen = Y.map(lasts.get("endWhen"));
         c.crisis = Y.b(m, "crisis");
         return c;
     }
@@ -304,6 +325,8 @@ public final class Content {
             for (Map<String, Object> e : c.effects) Effects.check(e, c.id);
             for (Map<String, Object> e : c.perShortfall) Effects.check(e, c.id);
             for (Map<String, Object> e : c.ongoing) Effects.check(e, c.id);
+            for (Map<String, Object> e : c.everyRound) Effects.check(e, c.id);
+            for (List<Map<String, Object>> st : c.stages) for (Map<String, Object> e : st) Effects.check(e, c.id);
         }
         for (WonderDef w : greatWonders.values()) for (Map<String, Object> e : w.effects) Effects.check(e, w.id);
         for (TerritoryDef t : territories.values()) {

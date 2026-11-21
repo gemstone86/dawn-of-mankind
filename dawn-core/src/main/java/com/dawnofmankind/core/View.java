@@ -62,6 +62,14 @@ public final class View {
         v.put("futureEvents", g.futureEvents.size()); // face down: only how many
         v.put("pastEvents", g.pastEvents.stream().map(View::card).toList().reversed());
         v.put("persistentEvents", g.persistentEvents.stream().map(View::card).toList());
+        List<Object> crises = new ArrayList<>();
+        for (Game.ActiveCrisis c : g.crises) {
+            Map<String, Object> m = card(c.card);
+            m.put("round", c.roundsDone);
+            m.put("rounds", c.card.def.lastsRounds);
+            crises.add(m);
+        }
+        v.put("crises", crises);
         v.put("crisisPile", g.crisisPile.size());
 
         List<Object> wonders = new ArrayList<>();
@@ -133,6 +141,7 @@ public final class View {
             pm.put("raidDefense", m.raidDefense);
             pm.put("handSize", p.hand.size());
             pm.put("handLimit", g.handLimit(p));
+            pm.put("giveCards", m.giveCards);
             pm.put("actionsPerTurn", g.content.rules.actionsPerTurn + m.actionsPerTurn);
             pm.put("away", p.away);
             pm.put("income", income(g, p, m));
@@ -279,6 +288,10 @@ public final class View {
         for (Map<String, Object> e : d.effects) {
             if (e.containsKey("settle")) m.put("target", "land");
             if (e.containsKey("core")) m.put("target", "territory");
+            if (e.containsKey("trade")) {
+                m.put("target", "player");
+                m.put("trade", e.get("trade"));
+            }
         }
         return m;
     }

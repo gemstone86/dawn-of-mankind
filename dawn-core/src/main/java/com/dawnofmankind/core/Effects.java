@@ -18,7 +18,12 @@ import java.util.Set;
  * <p><b>Lasting</b> (active while the owner holds the tech or wonder, or while a persistent event is in play):
  * income, perWorker, handLimit, actionsPerTurn, raidDefense, invasionDefense, mitigate, buildDiscount, sharedPool,
  * victoryPoints, faceUpLands (more lands face up), settleDiscount (off every land's settling cost), freeSettlers
- * (fewer settlers needed per land), strengthPerTwoTroops (military strength +n for every 2 troops).
+ * (fewer settlers needed per land), strengthPerTwoTroops (military strength +n for every 2 troops), giveCards (the
+ * owner may give up to n cards to teammates for 1 action). trade ([resources]: the card sends any amount of those
+ * resources to a chosen teammate; giving is otherwise not possible).
+ * <p><b>Crisis</b> (in a lasting crisis's stages / everyRound): threat (+n enemies massing), invadeIfStronger (an
+ * invasion card strikes if the massing enemies outnumber the players' military strength), raidAll ({card, strength}:
+ * a raid on every player), invasion (an invasion card strikes), healthTest ({threshold, populationLoss}).
  * coreTerritory (great wonders, when finished): cores the territory the wonder stands in, else another one.
  *
  * <p><b>Response</b> (only on response cards, for the event being resolved): defense, halve, cancel, healthBonus.
@@ -27,9 +32,10 @@ public final class Effects {
     private Effects() {}
 
     static final Set<String> IMMEDIATE = Set.of("gain", "lose", "population", "army", "stability", "health", "draw",
-            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover", "enemy", "settle", "core", "removeLand", "coreTerritory", "hostility");
+            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover", "enemy", "settle", "core", "removeLand", "coreTerritory", "hostility",
+            "threat", "invadeIfStronger", "raidAll", "invasion", "healthTest", "trade");
     static final Set<String> LASTING = Set.of("income", "perWorker", "handLimit", "actionsPerTurn", "raidDefense",
-            "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense", "faceUpLands", "settleDiscount", "freeSettlers", "strengthPerTwoTroops");
+            "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense", "faceUpLands", "settleDiscount", "freeSettlers", "strengthPerTwoTroops", "giveCards");
     static final Set<String> RESPONSE = Set.of("defense", "halve", "cancel", "healthBonus");
 
     static String key(Map<String, Object> e) {
@@ -50,7 +56,7 @@ public final class Effects {
         public final EnumMap<Res, Integer> buildDiscount = Res.empty();
         public final EnumMap<Res, Integer> poolIncome = Res.empty();
         public final Set<String> mitigate = new HashSet<>();
-        public int handLimit, actionsPerTurn, raidDefense, victoryPoints, invasionDefense, faceUpLands, freeSettlers, strengthPerTwoTroops;
+        public int handLimit, actionsPerTurn, raidDefense, victoryPoints, invasionDefense, faceUpLands, freeSettlers, strengthPerTwoTroops, giveCards;
         public final EnumMap<Res, Integer> settleDiscount = Res.empty();
         public boolean sharedPool;
 
@@ -78,6 +84,7 @@ public final class Effects {
                 case "faceUpLands" -> faceUpLands += Y.toInt(v);
                 case "freeSettlers" -> freeSettlers += Y.toInt(v);
                 case "strengthPerTwoTroops" -> strengthPerTwoTroops += Y.toInt(v);
+                case "giveCards" -> giveCards += Y.toInt(v);
                 case "settleDiscount" -> Res.parse(v).forEach((r, n) -> settleDiscount.merge(r, n, Integer::sum));
                 case "victoryPoints" -> victoryPoints += Y.toInt(v);
                 case "mitigate" -> mitigate.addAll(Y.strings(v));

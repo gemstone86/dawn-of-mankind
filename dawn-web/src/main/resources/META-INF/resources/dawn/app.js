@@ -302,6 +302,9 @@ function renderEvents() {
     html += `<p class="muted small">After everyone's turn, as many events are drawn from the event deck as the future deck holds (now <b>${s.futureEvents}</b>).</p>`;
     if (s.threat) html += `<p class="threat-note">⚔ ${s.threat} enemies are massing. The next invasion will be ${s.threat} stronger (players × territories = ${s.players.length * s.realm.length}, so ${s.players.length * s.realm.length + s.threat} now).</p>`;
   }
+  if (s.crises.length) {
+    html += '<h3>Crises in effect</h3><div class="cards">' + s.crises.map(c => cardHtml(c, `<div class="small" style="color:var(--err)">Round ${c.round} of ${c.rounds}</div>`)).join('') + '</div>';
+  }
   if (s.persistentEvents.length) {
     html += '<h3>Lasting events</h3><div class="cards">' + s.persistentEvents.map(c => cardHtml(c,
       `<div class="actions"><button ${canAct() && affordable(c.cleanse) ? '' : 'disabled'} data-cleanse="${c.id}">Lift for ${resList(c.cleanse)} (1 action)</button></div>`)).join('') + '</div>';
@@ -395,16 +398,21 @@ function renderHand() {
   const over = p.hand.length > p.handLimit;
   const cards = p.hand.map(c => {
     const playable = c.type !== 'response';
-    const give = others.length ? `<select data-keep="give-${c.id}" id="give-${c.id}">${others.map(o => `<option value="${o.seat}">${esc(o.name)}</option>`).join('')}</select><button class="tiny" data-givecard="${c.id}">Give</button>` : '';
+    const give = others.length && p.giveCards ? `<label class="small" style="margin:0"><input type="checkbox" data-pickgive="${c.id}" data-keep="pg-${c.id}"> give</label>` : '';
     if (c.target === 'land') {
       return cardHtml(c, `<div class="actions"><span class="small muted">Use it on a land in the realm panel.</span><button class="tiny" data-discard="${c.id}">Discard</button>${give}</div>`);
     }
-    const opts = c.target === 'territory' ? s.realm.filter(t => !t.cored).map(t => [t.id, t.name]) : null;
+    const opts = c.target === 'territory' ? s.realm.filter(t => !t.cored).map(t => [t.id, t.name])
+      : c.target === 'player' ? others.map(o => [o.seat, o.name]) : null;
+    const tradeInputs = c.trade ? `<div class="row small">${c.trade.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" value="0" data-keep="tr-${c.id}-${k}" data-tres="${k}" data-tcard="${c.id}"></label>`).join('')}</div>` : '';
     const pickTarget = opts ? `<select id="tgt-${c.id}" data-keep="tgt-${c.id}">${opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('')}</select>` : '';
-    return cardHtml(c, `<div class="actions">${pickTarget}${playable ? `<button ${act && affordable(c.cost) && (!opts || opts.length) ? '' : 'disabled'} data-play="${c.id}" data-target="${c.target || ''}">Play (1 action)</button>` : '<span class="small muted">Play it when an event strikes.</span>'}
+    return cardHtml(c, `${tradeInputs}<div class="actions">${pickTarget}${playable ? `<button ${act && affordable(c.cost) && (!opts || opts.length) ? '' : 'disabled'} data-play="${c.id}" data-target="${c.target || ''}">Play (1 action)</button>` : '<span class="small muted">Play it when an event strikes.</span>'}
       <button class="tiny" data-discard="${c.id}">Discard</button>${give}</div>`);
   }).join('');
-  $('handPanel').innerHTML = `<h2>Your hand (${p.hand.length}/${p.handLimit})</h2>${over ? `<p class="small bad" style="color:var(--err)">Discard down to ${p.handLimit} before ending your turn.</p>` : ''}
+  const giveBar = others.length && p.giveCards ? `<div class="row small">Roman Roads: give up to ${p.giveCards} ticked cards to
+      <select id="giveCardsTo" data-keep="giveCardsTo">${others.map(o => `<option value="${o.seat}">${esc(o.name)}</option>`).join('')}</select>
+      <button ${act ? '' : 'disabled'} data-givecards>Give (1 action)</button></div>` : '';
+  $('handPanel').innerHTML = `<h2>Your hand (${p.hand.length}/${p.handLimit})</h2>${over ? `<p class="small bad" style="color:var(--err)">Discard down to ${p.handLimit} before ending your turn.</p>` : ''}${giveBar}
     <div class="cards">${cards || '<p class="muted">No cards. Pick from the queue.</p>'}</div>`;
 }
 $('handPanel').onclick = e => {
@@ -413,10 +421,19 @@ $('handPanel').onclick = e => {
     const msg = { type: 'play', card: +t.dataset.play };
     const sel = $('tgt-' + t.dataset.play);
     if (t.dataset.target === 'territory') msg.territory = +sel.value;
+    if (t.dataset.target === 'player') {
+      msg.to = +sel.value;
+      msg.resources = {};
+      document.querySelectorAll(`[data-tcard="${t.dataset.play}"]`).forEach(i => { msg.resources[i.dataset.tres] = Math.max(0, +i.value || 0); i.value = 0; });
+    }
     send(msg);
   }
   else if (t.dataset.discard) send({ type: 'discard', card: +t.dataset.discard });
-  else if (t.dataset.givecard) send({ type: 'giveCard', card: +t.dataset.givecard, to: +$('give-' + t.dataset.givecard).value });
+  else if ('givecards' in t.dataset) {
+    const cards = [...document.querySelectorAll('[data-pickgive]:checked')].map(i => +i.dataset.pickgive);
+    send({ type: 'giveCards', to: +$('giveCardsTo').value, cards });
+    document.querySelectorAll('[data-pickgive]').forEach(i => { i.checked = false; });
+  }
 };
 
 function renderTeam() {
@@ -428,20 +445,8 @@ function renderTeam() {
       <div class="small muted">Pop ${o.population} · Army ${o.army} · Hand ${o.handSize} · ${o.buildings.map(b => esc(b.name) + ' ' + b.workers + '/' + b.slots).join(', ')}</div>
       ${o.techs.length || o.minorWonders.length ? `<div>${o.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${o.minorWonders.map(t => `<span class="chip">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
     </div>`).join('');
-  const give = others.length ? `<h3 style="margin-top:.5rem">Give resources</h3>
-    <div class="row small">${RES.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" value="0" data-keep="g-${k}" data-gres="${k}"></label>`).join('')}
-      <label style="margin:0">Troops <input type="number" min="0" value="0" data-keep="g-army" id="giveArmy"></label></div>
-    <div class="row"><select id="giveTo" data-keep="giveTo">${others.map(o => `<option value="${o.seat}">${esc(o.name)}</option>`).join('')}</select><button data-give>Give (free)</button></div>` : '';
-  $('teamPanel').innerHTML = `<h2>The tribe</h2>${list}${give}`;
+  $('teamPanel').innerHTML = `<h2>The tribe</h2>${list}`;
 }
-$('teamPanel').onclick = e => {
-  if (!e.target.closest('[data-give]')) return;
-  const resources = {};
-  document.querySelectorAll('[data-gres]').forEach(i => { resources[i.dataset.gres] = Math.max(0, +i.value || 0); i.value = 0; });
-  send({ type: 'give', to: +$('giveTo').value, resources, army: +$('giveArmy').value || 0 });
-  $('giveArmy').value = 0;
-};
-
 function renderDecks() {
   const s = state;
   const contents = Object.entries(s.eventDeckContents).map(([n, c]) => `${esc(n)}${c > 1 ? ' ×' + c : ''}`).join(', ');
@@ -455,7 +460,7 @@ function renderDecks() {
 function renderLog() {
   const box = $('logBox');
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
-  box.innerHTML = state.log.map(l => `<div class="${l.startsWith('—') ? 'round' : ''} ${l.startsWith('CRISIS') || l.startsWith('HOSTILITY') ? 'crisis' : ''}">${esc(l)}</div>`).join('');
+  box.innerHTML = state.log.map(l => `<div class="${l.startsWith('—') ? 'round' : ''} ${l.startsWith('CRISIS') || l.startsWith('HOSTILITY') || l.includes('they invade!') ? 'crisis' : ''}">${esc(l)}</div>`).join('');
   if (atBottom || !box.dataset.seen) { box.scrollTop = box.scrollHeight; box.dataset.seen = '1'; }
 }
 

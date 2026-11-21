@@ -67,8 +67,10 @@ culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population 
 1. **Production** for everyone; then each Population eats 1 food (unfed people starve, Stability −1).
 2. **Turns**, in seat order from the First Player. A turn starts with a free blind card from the era deck, then
    **4 actions**: move a worker · build · pick a card from the queue · play a card · grow (+1 Population for 3 food)
-   · train a troop (2 production) · contribute to a great wonder · lift a lasting event. Giving resources or cards
-   to a teammate, discarding and using the shared pool are free. Hand limit 7.
+   · train a troop (2 production) · contribute to a great wonder · lift a lasting event. Discarding and using the
+   shared pool are free. Nothing else can be given freely: the **New Trading Route** card sends any amount of food,
+   production and research to one teammate, and cards can only be given with the **Roman Roads** (a minor wonder):
+   up to 2 cards for 1 action. Troops can't be given. Hand limit 7.
 3. **Events**: draw as many events from the event deck as the future deck holds, and resolve them one by one.
    Before each, anyone can play response cards; against an invasion everyone chooses how many troops to send.
    Resolved events go to the past events deck; then the future deck is shuffled into the event deck.
@@ -86,9 +88,13 @@ troops to send. **Hostility cards** (Prehistoric: 3 × +1, 3 × +2; Ancient: 2 �
 they are revealed from the era deck, adding to the enemies massing, which everyone can see; the next invasion brings
 them all and the count starts again. An invasion
 that breaks through takes a random territory: every player's buildings shrink to what the remaining land allows, and
-a great wonder standing there is lost. **Crisis cards** (Black Plague, Supervolcano Eruption,
-Meteor Impact, Climate Change) are added to the future deck by certain events and when a player's Population hits
-0 (which also costs 1 Stability). Technologies can soften them.
+a great wonder standing there is lost. **Crisis cards** last: once one resolves it acts
+again in every events phase until its rounds run out or its condition is met. Black Plague (up to 3 rounds, a health
+test each round, ends once Health reaches 8), Supervolcano Eruption (eruption, then 2 rounds of ash winter), Meteor
+Impact (2 rounds) and Climate Change (until lifted) are added by certain events and when a player's Population hits 0
+(which also costs 1 Stability). The Ancient era deck also holds two: **Rise of a Nomad Empire** (10 rounds: +2 enemies
+massing each round, and an invasion as soon as they outnumber the tribe's military strength) and **the Sea Peoples**
+(a double-strength raid on every player, then an invasion). Technologies can soften crises.
 
 **Eras** end when the era deck runs out or the era's trigger event resolves. Unfinished great wonders are lost then
 (half is returned).

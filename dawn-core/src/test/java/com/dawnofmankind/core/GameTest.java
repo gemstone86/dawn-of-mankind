@@ -79,7 +79,7 @@ class GameTest {
 
     @Test
     void invasionStrengthIsPlayersTimesTerritories() {
-        assertEquals(10, C.cards.get("sea_peoples").strength(2, 5));
+        assertEquals(10, C.cards.get("hill_tribes").strength(2, 5));
         assertEquals(10, C.cards.get("wandering_horde").strength(2, 5));
         assertEquals(4, C.cards.get("wandering_horde").strength(2, 2));
     }
@@ -131,6 +131,70 @@ class GameTest {
         assertEquals(1, g.settleSettlers(f));
         g.eraIndex = 1;
         assertEquals(2, g.settleSettlers(f), "obsolete in the Ancient era");
+    }
+
+    @Test
+    void cardsCanOnlyBeGivenWithRomanRoads() {
+        Game g = game(2, 21);
+        Player p = g.players.get(g.currentPlayer);
+        Player other = g.players.get(1 - p.seat);
+        p.hand.add(card(g, "foraging"));
+        p.hand.add(card(g, "irrigation"));
+        int a = p.hand.get(p.hand.size() - 2).id, b = p.hand.get(p.hand.size() - 1).id;
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "giveCards", "to", other.seat, "cards", List.of(a))));
+        p.minorWonders.add(C.cards.get("roman_roads"));
+        int before = other.hand.size();
+        g.act(p.seat, Map.of("type", "giveCards", "to", other.seat, "cards", List.of(a, b)));
+        assertEquals(before + 2, other.hand.size());
+        assertEquals(3, g.actionsLeft, "1 action for both cards");
+    }
+
+    @Test
+    void seaPeoplesRaidEveryoneThenInvade() {
+        Game g = game(2, 22);
+        AiPlayer bot = new AiPlayer(1);
+        // put the crisis on top of the event deck and make sure one event is drawn this round
+        g.currentEvents.add(0, card(g, "sea_peoples"));
+        g.futureEvents.add(card(g, "good_hunt"));
+        int round = g.round;
+        while (g.round == round && g.result == null) bot.step(g);
+        assertTrue(g.log.stream().anyMatch(l -> l.contains("Sea Peoples' Raid strike every player")), String.join("\n", g.log));
+        boolean invaded = false;
+        while (g.round == round + 1 && g.result == null) {
+            bot.step(g);
+            if (g.pending != null && g.pending.event.def.id.equals("sea_peoples_invasion")) invaded = true;
+        }
+        assertTrue(invaded || g.result != null, "the second round brings the invasion");
+    }
+
+    @Test
+    void nomadEmpireMassesEnemies() {
+        Game g = game(1, 23);
+        AiPlayer bot = new AiPlayer(2);
+        g.currentEvents.add(0, card(g, "nomad_empire"));
+        g.futureEvents.add(card(g, "good_hunt"));
+        int round = g.round;
+        while (g.round == round && g.result == null) bot.step(g);
+        assertEquals(1, g.crises.size());
+        assertTrue(g.crises.get(0).roundsDone == 1);
+    }
+
+    @Test
+    void resourcesOnlyTravelByTradingRoute() {
+        Game g = game(2, 24);
+        Player p = g.players.get(g.currentPlayer);
+        Player other = g.players.get(1 - p.seat);
+        p.res.put(Res.FOOD, 10);
+        p.res.put(Res.CULTURE, 5);
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "give", "to", other.seat, "resources", Map.of("food", 1))));
+        Game.CardInst route = card(g, "new_trading_route");
+        p.hand.add(route);
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "play", "card", route.id, "to", other.seat, "resources", Map.of("culture", 1))),
+                "culture can't travel the route");
+        int before = other.res.get(Res.FOOD);
+        g.act(p.seat, Map.of("type", "play", "card", route.id, "to", other.seat, "resources", Map.of("food", 6)));
+        assertEquals(before + 6, other.res.get(Res.FOOD));
+        assertEquals(4, p.res.get(Res.FOOD));
     }
 
     @Test

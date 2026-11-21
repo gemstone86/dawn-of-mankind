@@ -99,6 +99,19 @@ public final class Game {
         }
     }
 
+    /** A crisis in effect: it acts again every round until it runs out or its condition is met. */
+    public static final class ActiveCrisis {
+        public final CardInst card;
+        public int roundsDone;
+
+        ActiveCrisis(CardInst card) {
+            this.card = card;
+        }
+    }
+
+    /** A raid or invasion a crisis sends, waiting to be resolved like an event. */
+    private record Attack(CardInst card, int target, int strength) {}
+
     /** The event being resolved and the players' responses to it. */
     public static final class Pending {
         public final CardInst event;
@@ -111,6 +124,8 @@ public final class Game {
         public int defenseBonus, healthBonus;
         public boolean halve, cancel;
         public Boolean accept;
+        /** Sent by a crisis, not drawn from the event deck. */
+        boolean fromCrisis;
 
         Pending(CardInst event, int target, int strength) {
             this.event = event;
@@ -141,6 +156,8 @@ public final class Game {
     public final List<CardInst> pastEvents = new ArrayList<>();
     public final List<CardInst> persistentEvents = new ArrayList<>();
     public final List<CardInst> crisisPile = new ArrayList<>();
+    public final List<ActiveCrisis> crises = new ArrayList<>();
+    private final List<Attack> attacks = new ArrayList<>();
     public final List<WonderProgress> greatWonders = new ArrayList<>();
     public final List<WonderDef> builtWonders = new ArrayList<>();
     public final EnumMap<Res, Integer> pool = Res.empty();
@@ -363,21 +380,29 @@ public final class Game {
         eventsDrawnThisRound = n;
         drawnIndex = 0;
         log(plural(futureEvents.size(), "event") + " in the future deck: " + plural(n, "event") + " drawn from the event deck.");
+        for (ActiveCrisis c : List.copyOf(crises)) tickCrisis(c);
+        if (checkDefeat()) return;
         openNextEvent();
     }
 
     private void openNextEvent() {
         while (result == null) {
-            if (drawnIndex >= drawn.size()) {
+            Attack attack = attacks.isEmpty() ? null : attacks.remove(0);
+            if (attack == null && drawnIndex >= drawn.size()) {
                 finishEvents();
                 return;
             }
-            CardInst e = drawn.get(drawnIndex);
+            CardInst e = attack != null ? attack.card() : drawn.get(drawnIndex);
             CardDef d = e.def;
             int target = -1;
             if ("one".equals(d.target) || "raid".equals(d.kind) || "opportunity".equals(d.kind)) target = rng.nextInt(players.size());
             int strength = d.strength(players.size(), realm.size()) + ("invasion".equals(d.kind) ? threat : 0);
+            if (attack != null) {
+                if (attack.target() >= 0) target = attack.target();
+                if (attack.strength() > 0) strength = attack.strength();
+            }
             pending = new Pending(e, target, strength);
+            pending.fromCrisis = attack != null;
             for (Player p : players) pending.ready.put(p.seat, p.away);
             log("Event: " + d.name + (target >= 0 ? " (" + players.get(target).name + ")" : "") + " — " + d.text);
             // a land found by this event is shown now, so the team can pay for it before the event resolves
@@ -482,8 +507,6 @@ public final class Game {
         Player p = players.get(seat);
         switch (type) {
             // free, at any time
-            case "give" -> give(p, a);
-            case "giveCard" -> giveCard(p, a);
             case "deposit" -> deposit(p, a);
             case "withdraw" -> withdraw(p, a);
             case "discard" -> discard(p, a);
@@ -511,6 +534,7 @@ public final class Game {
                     case "grow" -> grow(p);
                     case "recruit" -> recruit(p);
                     case "contribute" -> contribute(p, a);
+                    case "giveCards" -> giveCards(p, a);
                     case "cleanse" -> cleanse(p, a);
                     default -> throw new GameException("Unknown action: " + type);
                 }
@@ -655,8 +679,23 @@ public final class Game {
         }
         boolean settles = d.effects.stream().anyMatch(e -> e.containsKey("settle"));
         boolean cores = d.effects.stream().anyMatch(e -> e.containsKey("core"));
+        Map<String, Object> tradeEffect = d.effects.stream().filter(e -> e.containsKey("trade")).findFirst().orElse(null);
         Frontier land = null;
         Territory core = null;
+        Player tradeTo = null;
+        EnumMap<Res, Integer> tradeAmounts = null;
+        if (tradeEffect != null) {
+            tradeTo = other(p, a);
+            tradeAmounts = Res.parse(a.get("resources"));
+            List<String> allowed = Y.strings(tradeEffect.get("trade"));
+            for (Res r : Res.values()) {
+                int v = tradeAmounts.get(r);
+                if (v < 0) throw new GameException("Amounts can't be negative.");
+                if (v > 0 && !allowed.contains(r.key())) throw new GameException(d.name + " carries only " + String.join(", ", allowed) + ".");
+                if (p.res.get(r) < v + d.cost.get(r)) throw new GameException("Not enough " + r.key() + ".");
+            }
+            if (Res.isZero(tradeAmounts)) throw new GameException("Choose what to send.");
+        }
         if (settles) land = landPayment(p, a, d.cost).land();
         if (cores) core = ownTerritory(a);
         pay(p, d.cost);
@@ -666,6 +705,12 @@ public final class Game {
         log(p.name + " plays " + d.name + ".");
         applyImmediate(d.effects, List.of(p), p, 1.0, false);
         if (land != null) payLand(p, landPayment(p, a, Res.empty()));
+        if (tradeTo != null) {
+            pay(p, tradeAmounts);
+            Player to = tradeTo;
+            tradeAmounts.forEach((r, v) -> to.res.merge(r, v, Integer::sum));
+            log(p.name + " sends " + Res.describe(tradeAmounts) + " to " + to.name + " along a new trading route.");
+        }
         if (core != null) {
             core.cored = true;
             log("The " + core.def.name + " becomes a core territory.");
@@ -921,12 +966,22 @@ public final class Game {
         log(p.name + " gives " + Res.describe(amt) + (troops > 0 ? " and " + troops + " troops" : "") + " to " + to.name + ".");
     }
 
-    private void giveCard(Player p, Map<String, Object> a) {
+    /** Giving cards needs Roman Roads: up to that many cards to one teammate for 1 action. */
+    private void giveCards(Player p, Map<String, Object> a) {
+        int most = mods(p).giveCards;
+        if (most <= 0) throw new GameException("Giving cards needs the Roman Roads.");
         Player to = other(p, a);
-        CardInst c = handCard(p, a);
-        p.hand.remove(c);
-        to.hand.add(c);
-        log(p.name + " gives a card to " + to.name + ".");
+        List<CardInst> cards = new ArrayList<>();
+        for (Object o : Y.list(a.get("cards"))) {
+            int id = Y.toInt(o);
+            CardInst c = p.hand.stream().filter(x -> x.id == id).findFirst().orElseThrow(() -> new GameException("That card isn't in your hand."));
+            if (!cards.contains(c)) cards.add(c);
+        }
+        if (cards.isEmpty()) throw new GameException("Choose the cards to give.");
+        if (cards.size() > most) throw new GameException("You can give at most " + most + " cards per action.");
+        p.hand.removeAll(cards);
+        to.hand.addAll(cards);
+        log(p.name + " sends " + plural(cards.size(), "card") + " along the roads to " + to.name + ".");
     }
 
     private Player other(Player p, Map<String, Object> a) {
@@ -1050,11 +1105,20 @@ public final class Game {
         Pending pe = pending;
         CardInst ev = pe.event;
         CardDef d = ev.def;
-        drawnIndex++;
+        if (!pe.fromCrisis) drawnIndex++;
         if (pe.cancel) {
             loseFoundLands(ev.id);
             log(d.name + " is averted.");
-            pastEvents.add(ev);
+            if (!d.helper) pastEvents.add(ev);
+            return;
+        }
+        if (d.lasts()) {
+            // a lasting crisis: it starts now and acts again every round until it ends
+            log("CRISIS IN EFFECT: " + d.name + " — " + d.text);
+            ActiveCrisis c = new ActiveCrisis(ev);
+            crises.add(c);
+            tickCrisis(c);
+            checkDefeat();
             return;
         }
         double factor = 1.0;
@@ -1098,10 +1162,50 @@ public final class Game {
         if (d.persistent) {
             persistentEvents.add(ev);
             log(d.name + " lingers until lifted (" + Res.describe(d.cleanseCost) + ").");
-        } else {
+        } else if (!d.helper) {
             pastEvents.add(ev);
         }
         checkDefeat();
+    }
+
+    /** One round of a lasting crisis: its stage for this round plus its every-round effects, then the end check. */
+    private void tickCrisis(ActiveCrisis c) {
+        CardDef d = c.card.def;
+        if (crisisOver(c)) {
+            endCrisis(c);
+            return;
+        }
+        List<Map<String, Object>> now = new ArrayList<>();
+        if (c.roundsDone < d.stages.size()) now.addAll(d.stages.get(c.roundsDone));
+        now.addAll(d.everyRound);
+        c.roundsDone++;
+        double factor = civMods().mitigate.contains(d.category) || civMods().mitigate.contains(d.id) ? 0.5 : 1.0;
+        log(d.name + ", round " + c.roundsDone + " of " + d.lastsRounds + (factor < 1 ? " (softened by your knowledge)" : "") + ".");
+        List<Player> targets = "one".equals(d.target) ? List.of(players.get(rng.nextInt(players.size()))) : players;
+        applyImmediate(now, targets, null, factor, "civ".equals(d.target));
+        if (crisisOver(c)) endCrisis(c);
+    }
+
+    private boolean crisisOver(ActiveCrisis c) {
+        CardDef d = c.card.def;
+        if (c.roundsDone >= d.lastsRounds) return true;
+        Object h = d.endWhen.get("health");
+        if (h != null && health >= Y.toInt(h)) return true;
+        Object st = d.endWhen.get("stability");
+        return st != null && stability >= Y.toInt(st);
+    }
+
+    private void endCrisis(ActiveCrisis c) {
+        if (!crises.remove(c)) return;
+        pastEvents.add(c.card);
+        log("The crisis " + c.card.def.name + " is over.");
+    }
+
+    /** Total military strength the players could field now (free troops) plus team-wide invasion defense. */
+    public int teamStrength() {
+        int s = civMods().invasionDefense;
+        for (Player p : players) s += strength(Math.max(0, p.army - p.committed));
+        return s;
     }
 
     private void raid(Pending pe, Player t, double factor) {
@@ -1246,6 +1350,35 @@ public final class Game {
                     if (actor != null && phase == Phase.TURNS && actor.seat == currentPlayer) actionsLeft += Y.toInt(v);
                 }
                 case "addCrisis" -> addCrisis(String.valueOf(v));
+                case "threat" -> {
+                    threat += Y.toInt(v);
+                    log("+" + Y.toInt(v) + " enemies massing (now " + threat + ").");
+                }
+                case "invadeIfStronger" -> {
+                    int team = teamStrength();
+                    if (threat > team) {
+                        log("The massing enemies (" + threat + ") outnumber the tribe's strength (" + team + "): they invade!");
+                        attacks.add(new Attack(inst(content.cards.get(String.valueOf(v))), -1, 0));
+                    }
+                }
+                case "raidAll" -> {
+                    Map<String, Object> m = Y.map(v);
+                    CardDef raid = content.cards.get(Y.s(m, "card", ""));
+                    for (Player p : players) attacks.add(new Attack(inst(raid), p.seat, Y.i(m, "strength", raid.strengthBase)));
+                    log(raid.name + " strike every player.");
+                }
+                case "invasion" -> attacks.add(new Attack(inst(content.cards.get(String.valueOf(v))), -1, 0));
+                case "healthTest" -> {
+                    Map<String, Object> m = Y.map(v);
+                    int shortfall = Math.max(0, Y.i(m, "threshold", 0) - health);
+                    int loss = (int) Math.floor(shortfall * Y.i(m, "populationLoss", 1) * factor);
+                    log("Health " + health + " against " + Y.i(m, "threshold", 0) + (loss == 0 ? ": no one dies." : ": " + loss + " Population lost."));
+                    for (int i = 0; i < loss; i++) {
+                        Player most = players.stream().max((x, y) -> x.population() - y.population()).orElseThrow();
+                        if (most.population() == 0) break;
+                        losePopulation(most, 1);
+                    }
+                }
                 case "enemy" -> {
                     Map<String, Object> m = Y.map(v);
                     int each = Y.i(m, "each", 0), one = Y.i(m, "one", 0);
