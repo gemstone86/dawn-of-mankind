@@ -91,6 +91,7 @@ label { display: block; font-size: .85rem; color: var(--bone-dim); margin: .6rem
 .slots { display: inline-flex; gap: .2rem; }
 .slot { width: 1rem; height: 1rem; border-radius: 50%; border: 1px solid var(--bone-dim); display: inline-block; }
 .slot.full { background: var(--bone); }
+.slot.room { background: #556070; border-color: #556070; opacity: .55; }
 .prog { height: .45rem; background: var(--ink); border-radius: 4px; overflow: hidden; margin: .15rem 0 .3rem; }
 .prog > div { height: 100%; background: var(--brass); }
 .wonder.done { border-color: var(--brass); }

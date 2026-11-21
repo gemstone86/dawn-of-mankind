@@ -206,6 +206,17 @@ class GameTest {
     }
 
     @Test
+    void idlePeopleFillNewSlots() {
+        Game g = game(1, 15);
+        Player p = g.players.get(0);
+        p.res.put(Res.PRODUCTION, 10);
+        p.idle = 3;
+        g.act(0, Map.of("type", "build", "building", "temple"));
+        assertEquals(2, p.ofType("temple").workers);
+        assertEquals(1, p.idle);
+    }
+
+    @Test
     void buildingAgainAddsSlots() {
         Game g = game(1, 6);
         Player p = g.players.get(0);

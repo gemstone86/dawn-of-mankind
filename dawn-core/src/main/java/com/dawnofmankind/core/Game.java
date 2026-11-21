@@ -573,8 +573,13 @@ public final class Game {
         }
         pay(p, buildCost(p, b));
         Building built = addBuilding(p, b);
+        // idle people move into the new slots at once (no action)
+        int moved = Math.min(p.idle, built.slots - built.workers);
+        built.workers += moved;
+        p.idle -= moved;
         log(built.level() == 1 ? p.name + " builds a " + b.name + "."
                 : p.name + " expands the " + b.name + " to level " + built.level() + " (" + built.slots + " worker slots).");
+        if (moved > 0) log(moved + " idle " + (moved == 1 ? "person starts" : "people start") + " working there.");
     }
 
     private void pick(Player p, Map<String, Object> a) {

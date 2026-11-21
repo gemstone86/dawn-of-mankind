@@ -320,11 +320,23 @@ $('eventPanel').onclick = e => {
 function renderCiv() {
   const s = state, p = me(), act = canAct();
   const capOf = id => (s.buildable || []).find(x => x.id === id)?.capacity;
-  const blds = p.buildings.map(b => `<div class="bld"><span class="bname">${esc(b.name)}${b.level > 1 ? ` <span class="chip">level ${b.level}</span>` : ''}</span>
-      <span class="slots">${Array.from({ length: b.slots }, (_, i) => `<span class="slot ${i < b.workers ? 'full' : ''}"></span>`).join('')}</span>
+  // every building, plus land-bound types the land has room for but that aren't built (all grey)
+  const rows = [...p.buildings];
+  for (const b of s.buildable || []) {
+    if (b.capacity && !p.buildings.some(x => x.type === b.id)) rows.push({ id: null, type: b.id, name: b.name, workers: 0, slots: 0, level: 0 });
+  }
+  const blds = rows.map(b => {
+    const cap = capOf(b.type);
+    const room = cap != null ? Math.max(0, cap - b.slots) : 0;
+    const dots = Array.from({ length: b.slots }, (_, i) => `<span class="slot ${i < b.workers ? 'full' : ''}" title="${i < b.workers ? 'worker' : 'empty slot'}"></span>`).join('')
+      + Array.from({ length: room }, () => '<span class="slot room" title="room on your land: build to use it"></span>').join('');
+    const controls = b.id == null ? '<span class="small muted">not built</span>' : `
       <button class="tiny" ${act && p.idle > 0 && b.workers < b.slots ? '' : 'disabled'} data-move-in="${b.id}" title="Move an idle worker here (1 action)">+ worker</button>
-      <button class="tiny" ${act && b.workers > 0 ? '' : 'disabled'} data-move-out="${b.id}" title="Make a worker idle (1 action)">− worker</button>
-      ${capOf(b.type) != null ? `<span class="small muted">land allows ${capOf(b.type)} slots</span>` : ''}</div>`).join('');
+      <button class="tiny" ${act && b.workers > 0 ? '' : 'disabled'} data-move-out="${b.id}" title="Make a worker idle (1 action)">− worker</button>`;
+    return `<div class="bld"><span class="bname">${esc(b.name)}${b.level > 1 ? ` <span class="chip">level ${b.level}</span>` : ''}</span>
+      <span class="slots">${dots}</span>${controls}
+      ${cap != null ? `<span class="small muted">${b.slots}/${cap} slots built</span>` : ''}</div>`;
+  }).join('');
   const moveOpts = [['idle', `Idle (${p.idle})`], ...p.buildings.map(b => [b.id, `${b.name} #${b.id} (${b.workers}/${b.slots})`])]
     .map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
   const build = (s.buildable || []).map(b => {
@@ -339,7 +351,7 @@ function renderCiv() {
     <div class="row small muted">Per round: ${resList(p.income, { signed: true })} (food after feeding your people)</div>
     <div class="row small">Population <b>${p.population}</b> · idle ${p.idle} · Army <b>${p.army}</b>${p.committed ? ` (${p.committed} away at war)` : ''} · raid defense +${p.raidDefense} · hand ${p.handSize}/${p.handLimit}</div>
     ${p.techs.length || p.minorWonders.length ? `<div class="small">${p.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${p.minorWonders.map(t => `<span class="chip" title="${esc(t.text)}">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
-    <h3 style="margin-top:.5rem">Buildings</h3>${blds}
+    <h3 style="margin-top:.5rem">Buildings</h3><p class="small muted" style="margin:0">● worker · ○ empty slot · <span style="opacity:.5">●</span> room on your land, not built yet</p>${blds}
     <div class="row small">Move a worker <select id="mvFrom" data-keep="mvFrom">${moveOpts}</select> → <select id="mvTo" data-keep="mvTo">${moveOpts}</select><button ${act ? '' : 'disabled'} data-move>Move (1 action)</button></div>
     <h3>Actions</h3><p class="small muted" style="margin:0">Building something you already have adds worker slots to it; each level costs 1 more production. Farms and mines need land.</p>
     <div class="row">${build}</div>
