@@ -190,6 +190,22 @@ class GameTest {
     }
 
     @Test
+    void greatLighthouse() {
+        Game g = game(2, 14);
+        Player p = g.players.get(g.currentPlayer);
+        g.greatWonders.clear();
+        g.queue.add(0, new Game.Slot(card(g, "great_lighthouse"), null));
+        g.act(p.seat, Map.of("type", "pick", "slot", 0));
+        int prodBefore = g.settleCost(g.frontier.get(0)).get(Res.PRODUCTION);
+        for (Res r : Res.values()) p.res.put(r, 100);
+        g.act(p.seat, Map.of("type", "contribute", "wonder", "great_lighthouse", "resources", Map.of("production", 100, "food", 100)));
+        assertEquals(1, g.builtWonders.size());
+        assertEquals(3, g.frontier.stream().filter(f -> !f.fromEvent).count(), "one more face-up land");
+        assertEquals(Math.max(0, prodBefore - 2), g.settleCost(g.frontier.get(0)).get(Res.PRODUCTION));
+        assertEquals(1, g.realm.stream().filter(t -> t.cored).count(), "it cores a territory");
+    }
+
+    @Test
     void buildingAgainAddsSlots() {
         Game g = game(1, 6);
         Player p = g.players.get(0);

@@ -681,6 +681,16 @@ public final class Game {
             where.wonders.add(w.def);
             log("The great wonder " + w.def.name + " is complete, in the " + where.def.name + "! " + w.def.text);
             applyImmediate(w.def.effects, players, p, 1.0, false);
+            for (Map<String, Object> e : w.def.effects) {
+                if (!e.containsKey("coreTerritory")) continue;
+                for (int i = 0; i < Y.toInt(e.get("coreTerritory")); i++) {
+                    Territory t = !where.cored ? where : realm.stream().filter(x -> !x.cored).findFirst().orElse(null);
+                    if (t == null) break;
+                    t.cored = true;
+                    log("The " + t.def.name + " becomes a core territory.");
+                }
+            }
+            refillLands();
         }
     }
 
@@ -696,7 +706,8 @@ public final class Game {
 
     /** Keeps {@code faceUpLands} face-up lands (the ones not from events). */
     private void refillLands() {
-        while (frontier.stream().filter(f -> !f.fromEvent).count() < content.rules.faceUpLands && !worldDeck.isEmpty()) {
+        int want = content.rules.faceUpLands + civMods().faceUpLands;
+        while (frontier.stream().filter(f -> !f.fromEvent).count() < want && !worldDeck.isEmpty()) {
             frontier.add(new Frontier(worldDeck.remove(0), false, -1));
         }
     }
@@ -708,7 +719,7 @@ public final class Game {
         EnumMap<Res, Integer> cost = Res.empty();
         if (def.special) {
             def.costPerPlayer.forEach((r, v) -> cost.put(r, v * n));
-            return cost;
+            return discounted(cost);
         }
         Content.Rules r = content.rules;
         int extra = Math.max(0, realm.size() - r.colonizeFreeTerritories);
@@ -720,6 +731,12 @@ public final class Game {
             discount -= c;
         }
         cost.replaceAll((x, v) -> v * n);
+        return discounted(cost);
+    }
+
+    /** Lasting discounts on settling (e.g. the Great Lighthouse), off the land's whole cost. */
+    private EnumMap<Res, Integer> discounted(EnumMap<Res, Integer> cost) {
+        civMods().settleDiscount.forEach((r, v) -> cost.put(r, Math.max(0, cost.get(r) - v)));
         return cost;
     }
 

@@ -92,7 +92,7 @@ Meteor Impact, Climate Change) are added to the future deck by certain events an
 **The game** is lost if Stability reaches 0, everyone's Population is gone or the realm has no territory left, and
 won by finishing the last era.
 The score is the victory points of the **great wonders** built (Stonehenge, the Pyramids, the Hanging Gardens, the
-Great Library, the Colossus). Great wonders are cards in the era decks: whoever picks or draws one puts it on the
+Great Library, the Great Lighthouse, the Colossus). Great wonders are cards in the era decks: whoever picks or draws one puts it on the
 board, and everyone can contribute to it. Each costs about 3.5 rounds of the whole team's output (its cost is per
 player) and, when finished, stands in a territory of the team's choice. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
 bonuses and points in content.yaml are placeholders.
@@ -103,7 +103,9 @@ bonuses and points in content.yaml are placeholders.
 - Temple and Village produce **per worker**, like Farm and Mine.
 - New Population goes straight into a free worker slot, otherwise it is idle.
 - Raids and one-player events strike a random player.
-- Great wonder bonuses apply to every player; Stonehenge's +1 action is for everyone.
+- Great wonder bonuses apply to every player; Stonehenge's +1 action is for everyone. The Pyramids and the Great
+  Lighthouse core the territory they stand in (or another one, if that is already a core). The Lighthouse's
+  −2 production is off each land's whole settling cost.
 - Fights: the troops that fight (up to the enemy's strength) must reach its strength, with response cards and
   defense bonuses adding to it; half of the troops spent are lost, win or lose. A lost raid also costs 1 Stability,
   a broken invasion 2 Stability and a territory.

@@ -145,9 +145,9 @@ greatWonders:
     name: The Pyramids
     era: ancient
     costPerPlayer: {production: 11, culture: 4}
-    effects: [{stability: 2}, {income: {culture: 2}}]
+    effects: [{stability: 2}, {income: {culture: 2}}, {coreTerritory: 1}]
     victoryPoints: 2
-    text: +2 Stability, every player +2 culture per turn, +2 victory points.
+    text: +2 Stability, every player +2 culture per turn, +2 victory points. Cores a territory (the one it stands in).
   hanging_gardens:
     name: The Hanging Gardens
     era: ancient
@@ -162,6 +162,13 @@ greatWonders:
     effects: [{income: {research: 4}}, {handLimit: 1}]
     victoryPoints: 2
     text: Every player +4 research per turn and +1 max hand size.
+  great_lighthouse:
+    name: The Great Lighthouse
+    era: ancient
+    costPerPlayer: {production: 9, food: 3}
+    effects: [{faceUpLands: 1}, {settleDiscount: {production: 2}}, {coreTerritory: 1}]
+    victoryPoints: 2
+    text: One more land lies face up. Settling any land costs 2 production less. Cores a territory (the one it stands in).
   colossus:
     name: The Colossus
     era: ancient
@@ -230,6 +237,7 @@ eras:
       pyramids: 1
       hanging_gardens: 1
       great_library: 1
+      great_lighthouse: 1
       colossus: 1
       agriculture: 1
       bronze_working: 1
