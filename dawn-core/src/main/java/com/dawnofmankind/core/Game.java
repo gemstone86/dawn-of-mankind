@@ -125,9 +125,9 @@ public final class Game {
             Player p = new Player(i, names.get(i));
             r.startResources.forEach((k, v) -> p.res.put(k, v));
             r.startWorkers.forEach((bid, workers) -> {
-                Building b = new Building(nextId++, content.buildings.get(bid));
-                b.workers = workers;
-                p.buildings.add(b);
+                Building b = addBuilding(p, content.buildings.get(bid));
+                b.workers = Math.min(b.slots, workers);
+                p.idle += workers - b.workers;
             });
             players.add(p);
         }
@@ -454,7 +454,7 @@ public final class Game {
         Building fb = fromIdle ? null : p.building(Y.toInt(from));
         Building tb = toIdle ? null : p.building(Y.toInt(to));
         if (fromIdle ? p.idle == 0 : fb.workers == 0) throw new GameException("There is no worker there.");
-        if (tb != null && tb.workers >= tb.def.slots) throw new GameException(tb.def.name + " has no free worker slot.");
+        if (tb != null && tb.workers >= tb.slots) throw new GameException(tb.def.name + " has no free worker slot.");
         if (fromIdle) p.idle--; else fb.workers--;
         if (toIdle) p.idle++; else tb.workers++;
         log(p.name + " moves a worker " + (fromIdle ? "" : "from the " + fb.def.name + " ") + "to "
@@ -473,8 +473,9 @@ public final class Game {
         BuildingDef b = content.buildings.get(id);
         if (b == null || !b.buildable) throw new GameException("You can't build that.");
         pay(p, buildCost(p, b));
-        p.buildings.add(new Building(nextId++, b));
-        log(p.name + " builds a " + b.name + ".");
+        Building built = addBuilding(p, b);
+        log(built.level() == 1 ? p.name + " builds a " + b.name + "."
+                : p.name + " expands the " + b.name + " to level " + built.level() + " (" + built.slots + " worker slots).");
     }
 
     private void pick(Player p, Map<String, Object> a) {
@@ -892,17 +893,25 @@ public final class Game {
                     int n = (int) Math.floor(Y.toInt(v) * factor);
                     for (Player p : targets) {
                         for (int i = 0; i < n && !p.buildings.isEmpty(); i++) {
+                            // the building with the fewest workers loses a level (its slots); workers without a slot go idle
                             Building b = p.buildings.stream().min((x, y) -> x.workers - y.workers).orElseThrow();
-                            p.buildings.remove(b);
-                            p.idle += b.workers;
-                            log(p.name + "'s " + b.def.name + " is destroyed" + (b.workers > 0 ? "; its workers are idle." : "."));
+                            b.slots -= b.def.slots;
+                            int out = Math.max(0, b.workers - Math.max(0, b.slots));
+                            b.workers -= out;
+                            p.idle += out;
+                            if (b.slots <= 0) {
+                                p.buildings.remove(b);
+                                log(p.name + "'s " + b.def.name + " is destroyed" + (out > 0 ? "; its workers are idle." : "."));
+                            } else {
+                                log(p.name + "'s " + b.def.name + " is damaged: down to " + b.slots + " worker slots" + (out > 0 ? "; " + out + " workers are idle." : "."));
+                            }
                         }
                     }
                 }
                 case "freeBuilding" -> {
                     BuildingDef b = content.buildings.get(String.valueOf(v));
-                    for (Player p : targets) p.buildings.add(new Building(nextId++, b));
-                    log(names(targets) + " get a free " + b.name + ".");
+                    for (Player p : targets) addBuilding(p, b);
+                    log(names(targets) + " get a free " + b.name + " level.");
                 }
                 default -> { /* lasting and response effects are handled elsewhere */ }
             }
@@ -928,10 +937,22 @@ public final class Game {
         log("CRISIS: " + c.def.name + " is added to the future deck!");
     }
 
+    /** Builds a building, or adds a level (more worker slots) to the one of that type the player already has. */
+    private Building addBuilding(Player p, BuildingDef def) {
+        Building b = p.ofType(def.id);
+        if (b != null) {
+            b.slots += def.slots;
+            return b;
+        }
+        b = new Building(nextId++, def);
+        p.buildings.add(b);
+        return b;
+    }
+
     /** New Population fills free worker slots (first building first), the rest is idle. */
     private void addPopulation(Player p, int n) {
         for (int i = 0; i < n; i++) {
-            Building free = p.buildings.stream().filter(b -> b.workers < b.def.slots).findFirst().orElse(null);
+            Building free = p.buildings.stream().filter(b -> b.workers < b.slots).findFirst().orElse(null);
             if (free != null) free.workers++; else p.idle++;
         }
     }

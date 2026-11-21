@@ -52,7 +52,7 @@ final class Bot {
         // put idle people to work
         if (p.idle > 0) {
             for (Player.Building b : p.buildings) {
-                if (b.workers < b.def.slots && tryAct(g, p, Map.of("type", "move", "from", "idle", "to", b.id))) return true;
+                if (b.workers < b.slots && tryAct(g, p, Map.of("type", "move", "from", "idle", "to", b.id))) return true;
             }
         }
         int food = p.res.get(Res.FOOD), pop = p.population();

@@ -40,7 +40,8 @@ that breaks a game shows up there. The bots' win rate is printed; it is a rough 
 ## The rules as built
 
 **Each player** starts with a Farm (2 farmers) and a Mine (1 miner): 3 Population. Every building has 2 worker
-slots. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
+slots. Building a type you already have adds a level (2 more slots) instead of a second building; events that
+destroy a building take a level away. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
 culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population eats 1 food per round.
 
 **A round**

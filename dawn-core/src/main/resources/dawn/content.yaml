@@ -24,6 +24,7 @@ rules:
   raidCasualtyDivisor: 3                  # a repelled raid of strength S costs S/3 troops
   invasionCasualtyDivisor: 2              # a repelled invasion of strength S costs S/2 troops, split between senders
 
+# A player has one building of each type. Building it again adds a level: 2 more worker slots.
 buildings:
   farm:
     name: Farm
@@ -510,7 +511,7 @@ cards:
     category: catastrophe
     target: one
     effects: [{destroyBuilding: 1}, {lose: {food: 1}}]
-    text: One player loses a building (the one with fewest workers) and 1 food.
+    text: One player's building with the fewest workers loses a level (2 worker slots), and they lose 1 food.
   small_fire:
     name: Camp Fire Spreads
     type: event
@@ -617,7 +618,7 @@ cards:
     category: catastrophe
     target: one
     effects: [{destroyBuilding: 1}, {lose: {production: 2}}]
-    text: One player loses a building and 2 production.
+    text: One player's building with the fewest workers loses a level (2 worker slots), and they lose 2 production.
   plague:
     name: Plague
     type: event
@@ -713,7 +714,7 @@ cards:
     category: catastrophe
     target: each
     effects: [{lose: {food: 4, production: 4}}, {destroyBuilding: 1}, {stability: -2}]
-    text: CRISIS. Every player loses 4 food, 4 production and a building. -2 Stability.
+    text: CRISIS. Every player loses 4 food, 4 production and a building level. -2 Stability.
   meteor_impact:
     name: Meteor Impact
     type: event

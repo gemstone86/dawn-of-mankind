@@ -268,13 +268,13 @@ $('eventPanel').onclick = e => {
 
 function renderCiv() {
   const s = state, p = me(), act = canAct();
-  const blds = p.buildings.map(b => `<div class="bld"><span class="bname">${esc(b.name)}</span>
+  const blds = p.buildings.map(b => `<div class="bld"><span class="bname">${esc(b.name)}${b.level > 1 ? ` <span class="chip">level ${b.level}</span>` : ''}</span>
       <span class="slots">${Array.from({ length: b.slots }, (_, i) => `<span class="slot ${i < b.workers ? 'full' : ''}"></span>`).join('')}</span>
       <button class="tiny" ${act && p.idle > 0 && b.workers < b.slots ? '' : 'disabled'} data-move-in="${b.id}" title="Move an idle worker here (1 action)">+ worker</button>
       <button class="tiny" ${act && b.workers > 0 ? '' : 'disabled'} data-move-out="${b.id}" title="Make a worker idle (1 action)">− worker</button></div>`).join('');
   const moveOpts = [['idle', `Idle (${p.idle})`], ...p.buildings.map(b => [b.id, `${b.name} #${b.id} (${b.workers}/${b.slots})`])]
     .map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
-  const build = (s.buildable || []).map(b => `<button ${act && affordable(b.cost) ? '' : 'disabled'} data-build="${b.id}" title="${esc(b.text)}">${esc(b.name)} — ${resList(b.cost)}</button>`).join('');
+  const build = (s.buildable || []).map(b => `<button ${act && affordable(b.cost) ? '' : 'disabled'} data-build="${b.id}" title="${esc(b.text)}">${b.owned ? `Expand ${esc(b.name)} (+${b.slotsAdded} slots)` : `Build ${esc(b.name)}`} — ${resList(b.cost)}</button>`).join('');
   $('civPanel').className = 'panel mine';
   $('civPanel').innerHTML = `<h2>Your people — ${esc(p.name)}</h2>
     <div class="row">${resList(p.resources, { all: true })}</div>
@@ -283,7 +283,7 @@ function renderCiv() {
     ${p.techs.length || p.minorWonders.length ? `<div class="small">${p.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${p.minorWonders.map(t => `<span class="chip" title="${esc(t.text)}">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
     <h3 style="margin-top:.5rem">Buildings</h3>${blds}
     <div class="row small">Move a worker <select id="mvFrom" data-keep="mvFrom">${moveOpts}</select> → <select id="mvTo" data-keep="mvTo">${moveOpts}</select><button ${act ? '' : 'disabled'} data-move>Move (1 action)</button></div>
-    <h3>Actions</h3>
+    <h3>Actions</h3><p class="small muted" style="margin:0">Building something you already have adds worker slots to it.</p>
     <div class="row">${build}</div>
     <div class="row">
       <button ${act && affordable(s.rules.growthCost) ? '' : 'disabled'} data-grow>Grow +1 Population — ${resList(s.rules.growthCost)}</button>
@@ -339,7 +339,7 @@ function renderTeam() {
   const list = s.players.map(o => `<div class="teammate ${o.seat === s.currentPlayer && s.phase === 'turns' ? 'active' : ''}">
       <div class="tname">${o.seat === s.currentPlayer && s.phase === 'turns' ? '▶ ' : ''}${esc(o.name)}${o.seat === s.you ? ' (you)' : ''}${o.seat === s.firstPlayer ? ' <span class="chip">first</span>' : ''}${o.away ? ' <span class="chip">away</span>' : ''}</div>
       <div class="small">${resList(o.resources)}</div>
-      <div class="small muted">Pop ${o.population} · Army ${o.army} · Hand ${o.handSize} · ${o.buildings.map(b => b.name + ' ' + b.workers + '/' + b.slots).join(', ')}</div>
+      <div class="small muted">Pop ${o.population} · Army ${o.army} · Hand ${o.handSize} · ${o.buildings.map(b => esc(b.name) + ' ' + b.workers + '/' + b.slots).join(', ')}</div>
       ${o.techs.length || o.minorWonders.length ? `<div>${o.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${o.minorWonders.map(t => `<span class="chip">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
     </div>`).join('');
   const give = others.length ? `<h3 style="margin-top:.5rem">Give resources</h3>

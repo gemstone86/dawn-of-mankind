@@ -98,7 +98,8 @@ public final class View {
                 bm.put("type", b.def.id);
                 bm.put("name", b.def.name);
                 bm.put("workers", b.workers);
-                bm.put("slots", b.def.slots);
+                bm.put("slots", b.slots);
+                bm.put("level", b.level());
                 bs.add(bm);
             }
             pm.put("buildings", bs);
@@ -118,6 +119,8 @@ public final class View {
                 bm.put("id", b.id);
                 bm.put("name", b.name);
                 bm.put("cost", res(g.buildCost(me, b)));
+                bm.put("owned", me.ofType(b.id) != null);
+                bm.put("slotsAdded", b.slots);
                 bm.put("perWorker", res(b.perWorker));
                 bm.put("text", b.text);
                 build.add(bm);

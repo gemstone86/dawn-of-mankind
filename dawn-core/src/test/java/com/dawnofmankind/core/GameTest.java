@@ -60,6 +60,7 @@ class GameTest {
         Game g = game(1, 4);
         Player p = g.players.get(0);
         p.res.put(Res.PRODUCTION, 10);
+        p.res.put(Res.FOOD, 10);
         g.act(0, Map.of("type", "build", "building", "village"));
         Player.Building village = p.buildings.get(2);
         Player.Building farm = p.buildings.get(0);
@@ -67,6 +68,20 @@ class GameTest {
         assertEquals(1, village.workers);
         assertEquals(1, farm.workers);
         assertEquals(7, p.res.get(Res.PRODUCTION));
+    }
+
+    @Test
+    void buildingAgainAddsSlots() {
+        Game g = game(1, 6);
+        Player p = g.players.get(0);
+        p.res.put(Res.PRODUCTION, 10);
+        Player.Building farm = p.ofType("farm");
+        g.act(0, Map.of("type", "build", "building", "farm"));
+        assertEquals(2, p.buildings.size(), "still one farm and one mine");
+        assertEquals(4, farm.slots);
+        assertEquals(2, farm.level());
+        g.act(0, Map.of("type", "grow"));
+        assertEquals(3, farm.workers, "new Population fills the new slot");
     }
 
     @Test
