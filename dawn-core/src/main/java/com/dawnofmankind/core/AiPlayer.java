@@ -99,6 +99,9 @@ public final class AiPlayer {
             for (Res r : Res.values()) m.put(r.key(), give.get(r));
             if (tryAct(g, p, Map.of("type", "contribute", "wonder", w.def.id, "resources", m))) return true;
         }
+        for (Game.Frontier f : g.frontier) {
+            if (f.opened && tryAct(g, p, landPay(g, p, f, Map.of("type", "colonize")))) return true;
+        }
         if (!g.queue.isEmpty() && p.hand.size() < g.handLimit(p)) {
             return tryAct(g, p, Map.of("type", "pick", "slot", rng.nextInt(g.queue.size())));
         }

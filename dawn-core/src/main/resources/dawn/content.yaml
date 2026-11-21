@@ -218,7 +218,7 @@ eras:
       gather_the_tribe: 2
       long_day: 1
       send_scouts: 1
-      settle_land: 3
+      settle_land: 4
       core_territory: 1
       new_trading_route: 2
       # responses
@@ -226,8 +226,6 @@ eras:
       hide_in_the_caves: 1
       tribal_healer: 1
       offering_to_the_spirits: 1
-      # minor wonder
-      epic: 1
       # events
       wolf_pack: 2
       rival_tribe: 2
@@ -542,7 +540,7 @@ cards:
     name: Settle
     type: action
     effects: [{settle: true}]
-    text: "Pay toward a land: resources, troops against its enemy strength (half of the troops sent are lost) and settlers. Payments add up; the land joins the realm when its whole cost is paid."
+    text: "Open a face-up land for settling (you may pay toward it at once). From then on anyone can send it resources, troops against its enemy strength (half of them are lost) and settlers, 1 action each, until its whole cost is paid."
   core_territory:
     name: Fortify the Heartland
     type: action

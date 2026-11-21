@@ -205,7 +205,7 @@ function renderRealm() {
   const lands = s.realm.map(t => `<div class="cardx territory ${t.cored ? 'cored' : ''}"><div class="type">Territory${t.cored ? ' · core' : ''}</div><div class="name">${esc(t.name)}</div>
       <div class="text">${esc(t.text)}</div>${t.wonders.length ? `<div class="small">${t.wonders.map(w => `<span class="chip">★ ${esc(w)}</span>`).join('')}</div>` : ''}</div>`).join('');
   const settleCard = (me().hand || []).find(c => c.target === 'land');
-  const front = s.frontier.map(f => {
+  const landCard = f => {
     const need = RES.filter(k => f.left[k] > 0);
     const troopsLeft = f.troops - f.troopsPaid, settlersLeft = f.settlers - f.settlersPaid;
     const inputs = `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" max="${f.left[k]}" value="0" data-keep="f-${f.id}-${k}" data-fres="${k}"></label>`).join('')}
@@ -214,20 +214,25 @@ function renderRealm() {
       ${settlersLeft > 0 ? '<div class="small muted">Settlers can be idle people or workers (idle people go first).</div>' : ''}`;
     const canSendNow = f.duringEvent ? s.phase === 'events' && s.pending && !s.pending.ready[s.you] : canAct();
     const button = f.fromEvent
-      ? `<button ${canSendNow ? '' : 'disabled'} data-colonize="${f.id}">${f.duringEvent ? 'Send (free)' : 'Send (1 action)'}</button>`
-      : `<button ${canAct() && settleCard ? '' : 'disabled'} data-settle="${f.id}" title="${settleCard ? '' : 'You need a Settle card'}">Play Settle (1 action)</button>${settleCard ? '' : ' <span class="small muted">needs a Settle card</span>'}`;
+      ? `<button ${canSendNow ? '' : 'disabled'} data-colonize="${f.id}">Send (free)</button>`
+      : f.opened
+        ? `<button ${canAct() ? '' : 'disabled'} data-colonize="${f.id}">Send (1 action)</button>`
+        : `<button ${canAct() && settleCard ? '' : 'disabled'} data-settle="${f.id}" title="${settleCard ? '' : 'You need a Settle card'}">Play Settle: make it a colony (1 action)</button>${settleCard ? '' : ' <span class="small muted">needs a Settle card</span>'}`;
     const by = Object.entries(f.bySeat).map(([n, r]) => `<div class="small muted">${esc(n)}: ${resList(r)}</div>`).join('');
     return `<div class="cardx frontier ${f.fromEvent ? 'eventland' : ''}" data-f="${f.id}">
-      <div class="type">${f.fromEvent ? (f.duringEvent ? 'Found by this event · settle it now or lose it' : 'Scouted · settle it this turn or lose it') : 'Face-up land'}${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
+      <div class="type">${f.fromEvent ? 'Found by this event · settle it now or lose it' : f.opened ? 'Colony · being settled' : 'Face-up land'}${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
       <div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
       <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.troops ? ` · military strength ${f.troopsPaid}/${f.troops}` : ''}${f.settlers ? ` · settlers ${f.settlersPaid}/${f.settlers}` : ''}</div>
       ${by}${inputs}<div class="row">${button}</div></div>`;
-  }).join('');
+  };
+  const colonies = s.frontier.filter(f => f.opened).map(landCard).join('');
+  const front = s.frontier.filter(f => !f.opened).map(landCard).join('');
   $('realmPanel').innerHTML = `<h2>The realm</h2>
     <p class="muted small">Shared land. Each territory gives every player room for buildings and its bonus. A broken invasion takes a territory (a core territory only loses its core status); with none left, the game is lost.
     World deck: ${s.worldDeck} lands · colonization value ${s.colonizationValue}.</p>
     <div class="cards">${lands}</div>
-    <h3 style="margin-top:.6rem">Lands to settle</h3><p class="muted small">Pay toward a land until its whole cost is met: resources, troops against its enemy strength (half of the troops sent are lost), settlers. Face-up lands take Settle cards; payments stay on them until they are settled or claimed by others. A land found by an event must be paid for at once, before the event resolves (anyone, free), or it is lost with everything sent.</p>
+    ${colonies ? `<h3 style="margin-top:.6rem">Colonies</h3><p class="muted small">Lands being settled. Anyone can send to them (1 action each) until the whole cost is paid; then they join the realm.</p><div class="cards">${colonies}</div>` : ''}
+    <h3 style="margin-top:.6rem">Lands to settle</h3><p class="muted small">Pay toward a land until its whole cost is met: resources, troops against its enemy strength (half of the troops sent are lost), settlers. Play a Settle card on a face-up land to make it a colony (a new land is turned up in its place). A land found by an event must be paid for at once, before the event resolves (anyone, free), or it is lost with everything sent.</p>
     <div class="cards">${front || '<p class="muted">None face up.</p>'}</div>`;
 }
 

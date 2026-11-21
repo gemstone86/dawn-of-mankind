@@ -53,8 +53,9 @@ buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (St
 their whole cost, bit by bit: resources (per player 2 food and 2 production, +1 production for each territory beyond
 the first two, minus the realm's colonization value), military strength equal to the land's **enemy strength** (half of
 the troops sent are lost) and settlers (1 per player; idle people go first, then workers). Two lands lie **face up** from the start (Send Scouts turns up more); they stay until settled or
-removed by an event (Rivals Claim the Land), and are paid toward with **Settle** cards: each card lets its player pay
-what they can now, and payments stay on the land. A settled one is replaced from the world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, and the special Rich Land,
+removed by an event (Rivals Claim the Land). A **Settle** card makes one a **colony** (its player may pay at once) and
+a new land is turned up in its place; anyone can send resources, troops and settlers to a colony, 1 action each,
+and payments stay on it until it is settled. A settled one is replaced from the world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, and the special Rich Land,
 Fortified Land and Fertile Delta, which cost more) must be settled at once: everyone can pay toward them, free, in
 that event's response window; if the cost isn't met when the event resolves, the land is lost and so is what was
 sent. Hostile Tribes and A Warlord Rises raise the enemy strength of lands waiting to be

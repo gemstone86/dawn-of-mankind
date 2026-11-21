@@ -90,6 +90,8 @@ public final class Game {
         public int enemy;
         public final EnumMap<Res, Integer> paid = Res.empty();
         public int troopsPaid, settlersPaid;
+        /** A colony: a face-up land opened by a Settle card; anyone can pay toward it (1 action each). Its face-up spot is refilled. */
+        public boolean opened;
         public final Map<Integer, EnumMap<Res, Integer>> bySeat = new LinkedHashMap<>();
 
         Frontier(Territory land, boolean fromEvent, int eventCard) {
@@ -548,7 +550,16 @@ public final class Game {
     private void colonize(Player p, Map<String, Object> a) {
         LandPayment lp = landPayment(p, a, Res.empty());
         Frontier f = lp.land();
-        if (!f.fromEvent) throw new GameException("Face-up lands are settled with Settle cards.");
+        if (!f.fromEvent) {
+            // an opened face-up land: anyone, on their turn, 1 action per payment
+            if (!f.opened) throw new GameException("Play a Settle card on the " + f.land.def.name + " first to open it for settling.");
+            myTurn(p);
+            if (actionsLeft <= 0) throw new GameException("No actions left. End your turn.");
+            payLand(p, lp);
+            actionsLeft--;
+            version++;
+            return;
+        }
         if (phase != Phase.EVENTS || pending == null || pending.event.id != f.eventCard) throw new GameException("Too late for that land.");
         if (Boolean.TRUE.equals(pending.ready.get(p.seat))) throw new GameException("You have already passed on this event.");
         payLand(p, lp);
@@ -696,7 +707,13 @@ public final class Game {
             }
             if (Res.isZero(tradeAmounts)) throw new GameException("Choose what to send.");
         }
-        if (settles) land = landPayment(p, a, d.cost).land();
+        LandPayment opening = null;
+        if (settles) {
+            opening = landPayment(p, a, d.cost, true);
+            land = opening.land();
+            if (land.fromEvent) throw new GameException("Lands found by events are settled during their event, without a card.");
+            if (land.opened) throw new GameException("The " + land.land.def.name + " is already open for settling.");
+        }
         if (cores) core = ownTerritory(a);
         pay(p, d.cost);
         p.hand.remove(c);
@@ -704,7 +721,13 @@ public final class Game {
         if (d.type == CardType.MINOR_WONDER) p.minorWonders.add(d);
         log(p.name + " plays " + d.name + ".");
         applyImmediate(d.effects, List.of(p), p, 1.0, false);
-        if (land != null) payLand(p, landPayment(p, a, Res.empty()));
+        if (land != null) {
+            land.opened = true;
+            log("The " + land.land.def.name + " becomes a colony: anyone can now send resources, troops and settlers to it (1 action each).");
+            refillLands();
+            LandPayment now = landPayment(p, a, Res.empty(), true);
+            if (!Res.isZero(now.res()) || now.troops() > 0 || now.settlers() > 0) payLand(p, now);
+        }
         if (tradeTo != null) {
             pay(p, tradeAmounts);
             Player to = tradeTo;
@@ -783,7 +806,8 @@ public final class Game {
     /** Keeps {@code faceUpLands} face-up lands (the ones not from events). */
     private void refillLands() {
         int want = content.rules.faceUpLands + civMods().faceUpLands;
-        while (frontier.stream().filter(f -> !f.fromEvent).count() < want && !worldDeck.isEmpty()) {
+        // colonies (lands opened with a Settle card) no longer count as face-up lands
+        while (frontier.stream().filter(f -> !f.fromEvent && !f.opened).count() < want && !worldDeck.isEmpty()) {
             frontier.add(new Frontier(worldDeck.remove(0), false, -1));
         }
     }
@@ -853,6 +877,10 @@ public final class Game {
      * is what the player also has to pay for the card itself.
      */
     private LandPayment landPayment(Player p, Map<String, Object> a, Map<Res, Integer> reserved) {
+        return landPayment(p, a, reserved, false);
+    }
+
+    private LandPayment landPayment(Player p, Map<String, Object> a, Map<Res, Integer> reserved, boolean allowEmpty) {
         int id = Y.i(a, "land", -1);
         Frontier f = frontier.stream().filter(x -> x.land.id == id).findFirst()
                 .orElseThrow(() -> new GameException("Choose a land to settle."));
@@ -869,7 +897,7 @@ public final class Game {
         if (troops > p.army - p.committed) throw new GameException("You have " + (p.army - p.committed) + " free troops.");
         if (settlers > p.population()) throw new GameException("You don't have that many people.");
         boolean done = Res.isZero(settleLeft(f)) && f.troopsPaid >= settleTroops(f) && f.settlersPaid >= settleSettlers(f);
-        if (!done && Res.isZero(give) && troops == 0 && settlers == 0) throw new GameException("Send something the " + f.land.def.name + " still needs.");
+        if (!allowEmpty && !done && Res.isZero(give) && troops == 0 && settlers == 0) throw new GameException("Send something the " + f.land.def.name + " still needs.");
         return new LandPayment(f, give, troops, settlers);
     }
 
@@ -1394,12 +1422,12 @@ public final class Game {
                     }
                 }
                 case "removeLand" -> {
-                    List<Frontier> faceUp = frontier.stream().filter(f -> !f.fromEvent).toList();
+                    List<Frontier> faceUp = frontier.stream().filter(f -> !f.fromEvent && !f.opened).toList();
                     for (int i = 0; i < Y.toInt(v) && !faceUp.isEmpty(); i++) {
                         Frontier f = faceUp.get(rng.nextInt(faceUp.size()));
                         frontier.remove(f);
                         log("The " + f.land.def.name + " is claimed by others" + (Res.isZero(f.paid) && f.troopsPaid == 0 ? "." : "; what was sent toward it is lost."));
-                        faceUp = frontier.stream().filter(x -> !x.fromEvent).toList();
+                        faceUp = frontier.stream().filter(x -> !x.fromEvent && !x.opened).toList();
                     }
                     refillLands();
                 }

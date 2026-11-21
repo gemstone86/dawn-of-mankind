@@ -237,36 +237,35 @@ class GameTest {
     }
 
     @Test
-    void settlingAFaceUpLandAddsUpPayments() {
+    void settleCardOpensALandThenAnyonePays() {
         Game g = game(2, 11);
         assertEquals(2, g.frontier.size(), "two lands face up at the start");
         Player p = g.players.get(g.currentPlayer);
         Game.Frontier f = g.frontier.get(0);
         f.enemy = 4;
-        p.res.put(Res.FOOD, 1);
-        p.res.put(Res.PRODUCTION, 1);
-        p.army = 2;
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "colonize", "land", f.land.id, "resources", Map.of("food", 1))),
+                "not open yet");
         Game.CardInst s1 = card(g, "settle_land");
         p.hand.add(s1);
-        g.act(p.seat, Map.of("type", "play", "card", s1.id, "land", f.land.id, "resources", Map.of("food", 1, "production", 1), "army", 2));
-        assertEquals(2, g.realm.size(), "not settled yet");
-        assertEquals(1, f.paid.get(Res.FOOD));
+        p.army = 2;
+        g.act(p.seat, Map.of("type", "play", "card", s1.id, "land", f.land.id, "army", 2));
+        assertTrue(f.opened);
+        assertEquals(2, g.frontier.stream().filter(x -> !x.fromEvent && !x.opened).count(), "a new face-up land replaces the colony");
         assertEquals(2, f.troopsPaid);
         assertEquals(1, p.army, "half of the 2 troops sent are lost");
-        // a later Settle card finishes it
+        // later payments need no card, 1 action each
         p.res.put(Res.FOOD, 50);
         p.res.put(Res.PRODUCTION, 50);
         p.army = 5;
-        Game.CardInst s2 = card(g, "settle_land");
-        p.hand.add(s2);
+        p.idle += 5;
+        int actions = g.actionsLeft;
         Map<String, Object> all = new java.util.HashMap<>();
         for (Res r : Res.values()) all.put(r.key(), 50);
-        p.idle += 5;
-        g.act(p.seat, Map.of("type", "play", "card", s2.id, "land", f.land.id, "resources", all, "army", 5, "population", 5));
+        g.act(p.seat, Map.of("type", "colonize", "land", f.land.id, "resources", all, "army", 5, "population", 5));
+        assertEquals(actions - 1, g.actionsLeft);
         assertEquals(3, g.realm.size());
-        assertEquals(5 + 3 - 2, p.population(), "2 settlers (1 per player) left; workers or idle people can go");
         assertEquals(4, p.army, "only the missing 2 troops were sent, 1 lost");
-        assertEquals(2, g.frontier.size(), "the settled land is replaced");
+        assertEquals(2, g.frontier.size(), "the colony is settled; two face-up lands remain");
     }
 
     @Test
