@@ -69,6 +69,7 @@ label { display: block; font-size: .85rem; color: var(--bone-dim); margin: .6rem
 .cardx.minor_wonder { border-left: 3px solid var(--brass); }
 .cardx.territory { border-left: 3px solid var(--moss); padding: .3rem .55rem; }
 .cardx.frontier { border: 1px dashed var(--moss); }
+.cardx.frontier.eventland { border-color: var(--brass); }
 .cardx.territory.cored { border-left-width: 5px; border-left-color: var(--brass); }
 .cardx.great_wonder { border: 1px solid var(--brass); background: #2f2c22; }
 .queue-strip { margin: .8rem .8rem 0; }

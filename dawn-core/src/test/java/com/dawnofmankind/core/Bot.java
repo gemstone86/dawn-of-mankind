@@ -49,7 +49,7 @@ final class Bot {
             if (c.def.type == CardType.RESPONSE) continue;
             if (tryAct(g, p, Map.of("type", "play", "card", c.id))) return true;
             for (Game.Frontier f : g.frontier) {
-                if (tryAct(g, p, Map.of("type", "play", "card", c.id, "land", f.land.id))) return true;
+                if (tryAct(g, p, landPay(g, p, f, Map.of("type", "play", "card", c.id)))) return true;
             }
             for (Game.Territory t : g.realm) {
                 if (!t.cored && tryAct(g, p, Map.of("type", "play", "card", c.id, "territory", t.id))) return true;
@@ -77,10 +77,27 @@ final class Bot {
             for (Res r : Res.values()) m.put(r.key(), give.get(r));
             if (tryAct(g, p, Map.of("type", "contribute", "wonder", w.def.id, "resources", m))) return true;
         }
+        for (Game.Frontier f : g.frontier) {
+            if (f.fromEvent && tryAct(g, p, landPay(g, p, f, Map.of("type", "colonize")))) return true;
+        }
         if (!g.queue.isEmpty() && p.hand.size() < g.handLimit(p)) {
             return tryAct(g, p, Map.of("type", "pick", "slot", rng.nextInt(g.queue.size())));
         }
         return false;
+    }
+
+    /** Sends what the bot can spare toward a land. */
+    private static Map<String, Object> landPay(Game g, Player p, Game.Frontier f, Map<String, Object> base) {
+        Map<String, Object> m = new HashMap<>(base);
+        Map<String, Object> res = new HashMap<>();
+        EnumMap<Res, Integer> left = g.settleLeft(f);
+        int pop = p.population();
+        for (Res r : Res.values()) res.put(r.key(), Math.max(0, Math.min(left.get(r), p.res.get(r) - (r == Res.FOOD ? pop : 0))));
+        m.put("resources", res);
+        m.put("land", f.land.id);
+        m.put("army", Math.max(0, Math.min(g.settleTroops(f) - f.troopsPaid, p.army - p.committed - 1)));
+        m.put("population", pop > 4 ? Math.min(g.settleSettlers(f) - f.settlersPaid, pop - 4) : 0);
+        return m;
     }
 
     private String pick(String... options) {

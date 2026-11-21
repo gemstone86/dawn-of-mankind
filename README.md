@@ -48,14 +48,16 @@ costs 1 production more than the last. Events that destroy a building take a lev
 Jungle, Coast, Forest, Ocean): 2 at the start. Each territory gives every player worker slots for land-bound
 buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (Steppe: +2 military strength, Jungle:
 +1 research per turn, Coast: +1 colonization value, …). Farms and mines can only grow as far as the land allows
-(each player also has 2 home slots of each). Two lands lie **face up** to be
-settled (more can be turned up by discovery events and the Send Scouts card). A **Settle** card takes one: the player
-pays its cost (per player 2 food and 2 production, +1 production for each territory beyond the first two, minus the
-realm's colonization value) and needs free troops at least the land's **enemy strength**, losing half of that.
-Teammates can give resources and troops for free. The taken land is replaced from the world deck. Events (Hostile
-Tribes, A Warlord Rises) raise the enemy strength of face-up lands. The Rich Land costs 2 settlers and 2 troops per
-player instead. **Fortify the Heartland** makes a territory a **core**: a broken invasion that would take it only
-removes its core status. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
+(each player also has 2 home slots of each). Lands are settled by paying
+their whole cost, bit by bit: resources (per player 2 food and 2 production, +1 production for each territory beyond
+the first two, minus the realm's colonization value), troops equal to the land's **enemy strength** (troops sent are
+spent) and, for some lands, settlers. Two lands lie **face up** from the start and stay until settled; they are paid
+toward with **Settle** cards (each card lets its player pay what they can now), and a settled one is replaced from the
+world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, Send Scouts, and the special Rich
+Land, Fortified Land and Fertile Delta, which cost more) take anyone's help (1 action) but vanish after 2 rounds, half
+of what was sent coming back. Hostile Tribes and A Warlord Rises raise the enemy strength of lands waiting to be
+settled. **Fortify the Heartland** makes a territory a **core**: a broken invasion that would take it only removes its
+core status. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
 culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population eats 1 food per round.
 
 **A round**
@@ -108,4 +110,4 @@ bonuses and points in content.yaml are placeholders.
 - Happiness is not in the game yet.
 - Territory bonuses go to every player. Forest and Ocean bonuses are placeholders (you named those lands without
   bonuses). Steppe's +2 military strength counts for every raid defense and for the united army in invasions.
-- Face-up lands stay across eras; their enemy strength starts at 0 and only events raise it.
+- Face-up lands stay across eras; enemy strength starts at 0 and only events raise it. Troops sent to a land are spent.

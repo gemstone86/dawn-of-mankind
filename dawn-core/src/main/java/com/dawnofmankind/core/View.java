@@ -89,9 +89,17 @@ public final class View {
             Map<String, Object> m = territory(f.land);
             m.put("enemy", f.enemy);
             m.put("cost", res(g.settleCost(f)));
+            m.put("paid", res(f.paid));
+            m.put("left", res(g.settleLeft(f)));
             m.put("troops", g.settleTroops(f));
+            m.put("troopsPaid", f.troopsPaid);
             m.put("settlers", g.settleSettlers(f));
-            m.put("special", f.land.def.special);
+            m.put("settlersPaid", f.settlersPaid);
+            m.put("fromEvent", f.fromEvent);
+            m.put("lastRound", f.fromEvent ? f.lastRound : null);
+            Map<String, Object> by = new LinkedHashMap<>();
+            f.bySeat.forEach((s2, r) -> by.put(g.players.get(s2).name, res(r)));
+            m.put("bySeat", by);
             frontier.add(m);
         }
         v.put("frontier", frontier);

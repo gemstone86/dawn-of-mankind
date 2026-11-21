@@ -116,22 +116,54 @@ class GameTest {
     }
 
     @Test
-    void settlingAFaceUpLand() {
+    void settlingAFaceUpLandAddsUpPayments() {
         Game g = game(2, 11);
         assertEquals(2, g.frontier.size(), "two lands face up at the start");
         Player p = g.players.get(g.currentPlayer);
-        p.res.put(Res.FOOD, 50);
-        p.res.put(Res.PRODUCTION, 50);
         Game.Frontier f = g.frontier.get(0);
         f.enemy = 4;
-        Game.CardInst settle = card(g, "settle_land");
-        p.hand.add(settle);
-        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "play", "card", settle.id, "land", f.land.id)), "needs 4 troops");
+        p.res.put(Res.FOOD, 1);
+        p.res.put(Res.PRODUCTION, 1);
+        p.army = 2;
+        Game.CardInst s1 = card(g, "settle_land");
+        p.hand.add(s1);
+        g.act(p.seat, Map.of("type", "play", "card", s1.id, "land", f.land.id, "resources", Map.of("food", 1, "production", 1), "army", 2));
+        assertEquals(2, g.realm.size(), "not settled yet");
+        assertEquals(1, f.paid.get(Res.FOOD));
+        assertEquals(2, f.troopsPaid);
+        assertEquals(0, p.army, "troops sent are spent");
+        // a later Settle card finishes it
+        p.res.put(Res.FOOD, 50);
+        p.res.put(Res.PRODUCTION, 50);
         p.army = 5;
-        g.act(p.seat, Map.of("type", "play", "card", settle.id, "land", f.land.id));
+        Game.CardInst s2 = card(g, "settle_land");
+        p.hand.add(s2);
+        Map<String, Object> all = new java.util.HashMap<>();
+        for (Res r : Res.values()) all.put(r.key(), 50);
+        g.act(p.seat, Map.of("type", "play", "card", s2.id, "land", f.land.id, "resources", all, "army", 5));
         assertEquals(3, g.realm.size());
-        assertEquals(3, p.army, "lost half the enemy strength");
-        assertEquals(2, g.frontier.size(), "the taken land is replaced");
+        assertEquals(3, p.army, "only the missing 2 troops were sent");
+        assertEquals(2, g.frontier.size(), "the settled land is replaced");
+    }
+
+    @Test
+    void eventLandsAreSettledTogetherAndVanish() {
+        Game g = game(2, 13);
+        Content.TerritoryDef rich = C.territories.get("rich_land");
+        // a Rich Land found by an event: 2 settlers and 2 troops per player
+        Game.CardInst ev = card(g, "rich_land_found");
+        Player p = g.players.get(g.currentPlayer);
+        p.hand.add(card(g, "send_scouts"));
+        g.futureEvents.clear();
+        // discover directly through the event's effect
+        p.res.put(Res.FOOD, 10);
+        g.act(p.seat, Map.of("type", "play", "card", p.hand.get(p.hand.size() - 1).id));
+        Game.Frontier found = g.frontier.stream().filter(f -> f.fromEvent).findFirst().orElseThrow();
+        assertNotNull(found);
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "colonize", "land", g.frontier.get(0).land.id, "resources", Map.of("food", 1))),
+                "face-up lands need a Settle card");
+        assertNotNull(rich);
+        assertNotNull(ev);
     }
 
     @Test

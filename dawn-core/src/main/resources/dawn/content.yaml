@@ -16,8 +16,9 @@ rules:
   buildingEscalation: 1                   # each level a building already has adds 1 production to the next
   homeSlots: {farm: 2, mine: 2}           # farm and mine worker slots each player has before any territory
   startTerritories: 2                     # territories drawn from the world deck at the start
-  faceUpLands: 2                          # face-up lands to settle; one taken is replaced from the world deck
-  colonize:                               # settling a face-up land with a Settle card (the player pays; teammates can give)
+  faceUpLands: 2                          # face-up lands, paid off over time with Settle cards; replaced when settled
+  eventLandRounds: 2                      # lands found by events vanish after this many rounds; anyone can pay (1 action)
+  colonize:                               # the resource cost of an ordinary land
     costPerPlayer: {food: 2, production: 2}
     extraPerTerritoryPerPlayer: {production: 1}   # for each territory beyond the first 2
     territoriesBeforeExtra: 2
@@ -109,13 +110,28 @@ territories:
     colonization: 1
     effects: [{income: {food: 1}}]
     text: +1 food per turn (fishing). +1 colonization value.
+  # special lands: not in the world deck, found by events, with their own (higher) cost per player
   rich_land:
     name: Rich Land
-    special: true                       # not in the world deck: found by the Rich Land event
+    special: true
     slots: {farm: 2, mine: 2}
     effects: [{income: {culture: 1}}]
     costPerPlayer: {population: 2, army: 2}
     text: +2 farm and +2 mine worker slots, +1 culture per turn.
+  fortified_land:
+    name: Fortified Land
+    special: true
+    slots: {mine: 2}
+    effects: [{raidDefense: 1}, {invasionDefense: 3}]
+    costPerPlayer: {production: 3, army: 4}
+    text: +2 mine worker slots. +1 raid defense for every player, +3 against invasions.
+  fertile_delta:
+    name: Fertile Delta
+    special: true
+    slots: {farm: 4}
+    effects: [{income: {food: 1}}]
+    costPerPlayer: {food: 4, production: 2, population: 1}
+    text: +4 farm worker slots, +1 food per turn.
 
 greatWonders:
   stonehenge:
@@ -204,6 +220,7 @@ eras:
       strangers_at_the_fire: 1
       scouts_return: 1
       rich_land_found: 1
+      fertile_delta_found: 1
       hostile_tribes: 2
       dawn_of_agriculture: 1
   - id: ancient
@@ -258,6 +275,8 @@ eras:
       explorers: 1
       great_expedition: 1
       rich_land_found: 1
+      fortified_land_found: 1
+      fertile_delta_found: 1
       hostile_tribes: 1
       warlord: 2
       rise_of_empires: 1
@@ -485,12 +504,12 @@ cards:
     type: action
     cost: {food: 1}
     effects: [{discover: 1}]
-    text: Pay 1 food. Turn another land from the world deck face up.
+    text: Pay 1 food. Find a land (from the world deck) that anyone can help settle for 2 rounds.
   settle_land:
     name: Settle
     type: action
     effects: [{settle: true}]
-    text: "Settle a face-up land: pay its cost and defeat its defenders (troops at least its enemy strength; you lose half of that). Teammates can give you resources and troops."
+    text: "Pay toward a land: resources, troops against its enemy strength (troops sent are spent) and settlers. Payments add up; the land joins the realm when its whole cost is paid."
   core_territory:
     name: Fortify the Heartland
     type: action
@@ -801,37 +820,49 @@ cards:
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: Another land from the world deck is turned face up.
+    text: A land is found; anyone can help settle it for 2 rounds.
   explorers:
     name: Explorers
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: Another land from the world deck is turned face up.
+    text: A land is found; anyone can help settle it for 2 rounds.
   great_expedition:
     name: Great Expedition
     type: event
     category: discovery
     effects: [{discover: 2}]
-    text: Two more lands from the world deck are turned face up.
+    text: Two lands are found; anyone can help settle them for 2 rounds.
   hostile_tribes:
     name: Hostile Tribes
     type: event
     category: frontier
     effects: [{enemy: {each: 2}}]
-    text: Every face-up land gains 2 enemy strength.
+    text: Every land waiting to be settled gains 2 enemy strength.
   warlord:
     name: A Warlord Rises
     type: event
     category: frontier
     effects: [{enemy: {one: 4}}]
-    text: A random face-up land gains 4 enemy strength.
+    text: A random land waiting to be settled gains 4 enemy strength.
   rich_land_found:
     name: Rich Land
     type: event
     category: discovery
     effects: [{discover: rich_land}]
-    text: "A rich land is found, face up: settling it costs 2 settlers and 2 troops per player."
+    text: "A Rich Land is found: settling it takes 2 settlers and 2 troops per player, within 2 rounds."
+  fortified_land_found:
+    name: Fortified Land
+    type: event
+    category: discovery
+    effects: [{discover: fortified_land}]
+    text: "A Fortified Land is found: settling it takes 3 production and 4 troops per player, within 2 rounds."
+  fertile_delta_found:
+    name: Fertile Delta
+    type: event
+    category: discovery
+    effects: [{discover: fertile_delta}]
+    text: "A Fertile Delta is found: settling it takes 4 food, 2 production and 1 settler per player, within 2 rounds."
 
   # ------------------------------------------------------------------ crisis cards
   black_plague:
