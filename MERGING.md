@@ -85,3 +85,4 @@ Running games live in memory: every deploy (each merge to main) ends the games i
 | `dawn.away-grace-seconds` | 60 | after this long disconnected, a player's turns and responses are passed for them |
 | `dawn.idle-room-minutes` | 30 | a room nobody is connected to is removed after this long |
 | `dawn.finished-room-minutes` | 10 | the same, for a finished game |
+| `dawn.ai-move-millis` | 900 | pause before each move of an AI player |

@@ -9,29 +9,52 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-/** A simple player for tests: tries sensible actions in order and ignores the ones the rules refuse. */
-final class Bot {
+/**
+ * A simple computer player: tries sensible moves in a fixed order and skips the ones the rules refuse. Used for AI
+ * seats in a room and for the tests (bots playing whole games).
+ */
+public final class AiPlayer {
     private final Random rng;
 
-    Bot(long seed) {
+    public AiPlayer(long seed) {
         rng = new Random(seed);
     }
 
     /** Makes one move for whoever needs to move. Returns false if nothing could be done. */
-    boolean step(Game g) {
+    public boolean step(Game g) {
         if (g.result != null) return false;
-        if (g.phase == Game.Phase.EVENTS) return respond(g);
-        Player p = g.players.get(g.currentPlayer);
+        if (g.phase == Game.Phase.EVENTS) {
+            for (Player p : g.players) if (respond(g, p)) return true;
+            return false;
+        }
+        return stepFor(g, g.currentPlayer);
+    }
+
+    /** True if this seat has something to do now (its turn, or an event waiting for its response). */
+    public static boolean needsToAct(Game g, int seat) {
+        if (g.result != null) return false;
+        if (g.phase == Game.Phase.EVENTS) return g.pending != null && !Boolean.TRUE.equals(g.pending.ready.get(seat));
+        return g.phase == Game.Phase.TURNS && g.currentPlayer == seat;
+    }
+
+    /** Makes one move for this seat, if it needs to act. Returns false if it had nothing to do. */
+    public boolean stepFor(Game g, int seat) {
+        if (!needsToAct(g, seat)) return false;
+        Player p = g.players.get(seat);
+        if (g.phase == Game.Phase.EVENTS) return respond(g, p);
         if (g.actionsLeft > 0 && takeAction(g, p)) return true;
         while (p.hand.size() > g.handLimit(p)) g.act(p.seat, Map.of("type", "discard", "card", p.hand.get(0).id));
         g.act(p.seat, Map.of("type", "endTurn"));
         return true;
     }
 
-    private boolean respond(Game g) {
+    private boolean respond(Game g, Player p) {
         Game.Pending pe = g.pending;
-        for (Player p : g.players) {
-            if (Boolean.TRUE.equals(pe.ready.get(p.seat))) continue;
+        {
+            if (pe == null || Boolean.TRUE.equals(pe.ready.get(p.seat))) return false;
+            for (Game.Frontier f : List.copyOf(g.frontier)) {
+                if (f.fromEvent && f.eventCard == pe.event.id) tryAct(g, p, landPay(g, p, f, Map.of("type", "colonize")));
+            }
             for (CardInst c : List.copyOf(p.hand)) {
                 if (c.def.type == CardType.RESPONSE && tryAct(g, p, Map.of("type", "respond", "card", c.id))) break;
             }
@@ -40,7 +63,6 @@ final class Bot {
             g.act(p.seat, Map.of("type", "ready"));
             return true;
         }
-        return false;
     }
 
     private boolean takeAction(Game g, Player p) {
@@ -76,9 +98,6 @@ final class Bot {
             Map<String, Object> m = new HashMap<>();
             for (Res r : Res.values()) m.put(r.key(), give.get(r));
             if (tryAct(g, p, Map.of("type", "contribute", "wonder", w.def.id, "resources", m))) return true;
-        }
-        for (Game.Frontier f : g.frontier) {
-            if (f.fromEvent && tryAct(g, p, landPay(g, p, f, Map.of("type", "colonize")))) return true;
         }
         if (!g.queue.isEmpty() && p.hand.size() < g.handLimit(p)) {
             return tryAct(g, p, Map.of("type", "pick", "slot", rng.nextInt(g.queue.size())));

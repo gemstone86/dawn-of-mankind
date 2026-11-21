@@ -136,13 +136,15 @@ function renderLobby() {
   $('status').textContent = '';
   $('lobbyCode').textContent = room.code;
   $('lobbyPlayers').innerHTML = room.players.map(p => `<li><span class="dot ${p.connected ? '' : 'off'}"></span>${esc(p.name)}
-      ${p.seat === room.host ? '<span class="chip">host</span>' : ''}${p.seat === room.you ? '<span class="chip">you</span>' : ''}
+      ${p.ai ? '<span class="chip">AI</span>' : ''}${p.seat === room.host ? '<span class="chip">host</span>' : ''}${p.seat === room.you ? '<span class="chip">you</span>' : ''}
       ${room.you === room.host && p.seat !== room.host ? `<button class="tiny danger" data-kick="${p.seat}">remove</button>` : ''}</li>`).join('');
   $('startGame').hidden = room.you !== room.host;
-  $('lobbyNote').textContent = room.you === room.host ? 'Start when everyone is in (1–6 players).' : 'Waiting for the host to start.';
+  $('addAi').hidden = room.you !== room.host || room.players.length >= 6;
+  $('lobbyNote').textContent = room.you === room.host ? 'Start when everyone is in (1–6 players). AI players make simple moves on their own.' : 'Waiting for the host to start.';
 }
 $('lobbyPlayers').onclick = e => { const b = e.target.closest('[data-kick]'); if (b) send({ type: 'kick', seat: +b.dataset.kick }); };
 $('startGame').onclick = () => send({ type: 'start' });
+$('addAi').onclick = () => send({ type: 'addAi' });
 $('leave').onclick = () => {
   send({ type: 'leave' });
   gone = true;
@@ -418,7 +420,7 @@ function renderTeam() {
   const s = state;
   const others = s.players.filter(o => o.seat !== s.you);
   const list = s.players.map(o => `<div class="teammate ${o.seat === s.currentPlayer && s.phase === 'turns' ? 'active' : ''}">
-      <div class="tname">${o.seat === s.currentPlayer && s.phase === 'turns' ? '▶ ' : ''}${esc(o.name)}${o.seat === s.you ? ' (you)' : ''}${o.seat === s.firstPlayer ? ' <span class="chip">first</span>' : ''}${o.away ? ' <span class="chip">away</span>' : ''}</div>
+      <div class="tname">${o.seat === s.currentPlayer && s.phase === 'turns' ? '▶ ' : ''}${esc(o.name)}${o.seat === s.you ? ' (you)' : ''}${room.players[o.seat]?.ai ? ' <span class="chip">AI</span>' : ''}${o.seat === s.firstPlayer ? ' <span class="chip">first</span>' : ''}${o.away ? ' <span class="chip">away</span>' : ''}</div>
       <div class="small">${resList(o.resources)}</div>
       <div class="small muted">Pop ${o.population} · Army ${o.army} · Hand ${o.handSize} · ${o.buildings.map(b => esc(b.name) + ' ' + b.workers + '/' + b.slots).join(', ')}</div>
       ${o.techs.length || o.minorWonders.length ? `<div>${o.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${o.minorWonders.map(t => `<span class="chip">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}

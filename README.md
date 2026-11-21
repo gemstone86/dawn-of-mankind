@@ -15,7 +15,8 @@ Or build one jar and run it:
     mvn package
     java -jar dawn-app/target/dawn-of-mankind.jar
 
-Create a room, share the 5-letter code (or the invite link), and start when everyone is in. A player who closes the
+Create a room, share the 5-letter code (or the invite link), and start when everyone is in. The host can add
+**AI players** in the lobby: they make simple moves on their own (about one per second), handy for testing. A player who closes the
 page can come back to the same seat from the same browser; after 60 seconds away their turns are passed for them.
 
 ## Modules

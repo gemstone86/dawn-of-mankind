@@ -271,7 +271,7 @@ class GameTest {
     @Test
     void eventsDrawnEqualFutureDeckSize() {
         Game g = game(2, 5);
-        Bot bot = new Bot(5);
+        AiPlayer bot = new AiPlayer(5);
         int round = g.round;
         while (g.phase == Game.Phase.TURNS && g.round == round) bot.step(g);
         // in the events phase (or past it, if every event resolved at once)
@@ -284,7 +284,7 @@ class GameTest {
         for (int players = 1; players <= 6; players++) {
             for (long seed = 0; seed < 40; seed++) {
                 Game g = game(players, seed * 31 + players);
-                Bot bot = new Bot(seed);
+                AiPlayer bot = new AiPlayer(seed);
                 int steps = 0;
                 while (g.result == null && steps++ < 20000) assertTrue(bot.step(g), "bot stuck: " + last(g));
                 assertNotNull(g.result, "game did not end: " + last(g));
@@ -298,7 +298,7 @@ class GameTest {
     @Test
     void reportSampleGame() {
         Game g = game(3, 42);
-        Bot bot = new Bot(42);
+        AiPlayer bot = new AiPlayer(42);
         while (g.result == null) bot.step(g);
         System.out.println("Sample game: " + g.result + " in round " + g.round + ", era " + g.era().name + ", score " + g.score());
     }
