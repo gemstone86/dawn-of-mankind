@@ -76,7 +76,15 @@ public final class View {
             wonders.add(m);
         }
         v.put("greatWonders", wonders);
-        v.put("builtWonders", g.builtWonders.stream().map(View::wonder).toList());
+        List<Object> built = new ArrayList<>();
+        for (WonderDef w : g.builtWonders) {
+            Map<String, Object> m = wonder(w);
+            m.put("obsolete", g.obsolete(w));
+            built.add(m);
+        }
+        v.put("builtWonders", built);
+        v.put("strengthPerTwoTroops", g.civMods().strengthPerTwoTroops);
+        v.put("freeSettlers", g.civMods().freeSettlers);
 
         List<Object> realm = new ArrayList<>();
         for (Game.Territory t : g.realm) {
@@ -200,12 +208,12 @@ public final class View {
         return switch (d.kind) {
             case "raid" -> {
                 Player t = g.players.get(pe.target);
-                int def = Math.max(0, t.army - t.committed) + g.mods(t).raidDefense + pe.defenseBonus;
+                int def = g.strength(Math.max(0, t.army - t.committed)) + g.mods(t).raidDefense + pe.defenseBonus;
                 yield def >= pe.strength ? t.name + " will drive it off (defense " + def + " vs " + pe.strength + ")."
                         : t.name + " is " + (pe.strength - def) + " short (defense " + def + " vs " + pe.strength + ")" + half + ".";
             }
             case "invasion" -> {
-                int sent = pe.troops.values().stream().mapToInt(Integer::intValue).sum() + pe.defenseBonus;
+                int sent = pe.troops.values().stream().mapToInt(g::strength).sum() + pe.defenseBonus + g.civMods().invasionDefense;
                 yield sent >= pe.strength ? "The defenders (" + sent + ") will hold against " + pe.strength + "."
                         : "Defenders " + sent + " vs strength " + pe.strength + ": " + (pe.strength - sent) + " short" + half + ".";
             }

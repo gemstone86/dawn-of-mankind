@@ -32,7 +32,7 @@ public final class Content {
         /** Extra production for each level a building already has. */
         public int buildingEscalation;
         public EnumMap<Res, Integer> colonizeCostPerPlayer, colonizeEscalationPerPlayer;
-        public int colonizeFreeTerritories, faceUpLands;
+        public int colonizeFreeTerritories, faceUpLands, colonizeSettlersPerPlayer;
 
         public int removedPerRound(int players) {
             return removedPerRound.getOrDefault(players, players <= 2 ? 1 : players <= 4 ? 2 : 3);
@@ -84,6 +84,8 @@ public final class Content {
         public EnumMap<Res, Integer> costPerPlayer;
         public List<Map<String, Object>> effects = new ArrayList<>();
         public int victoryPoints;
+        /** The era after which the wonder's bonuses stop (e.g. Nomadic Living after the Prehistoric era). */
+        public String obsoleteAfter;
 
         public EnumMap<Res, Integer> cost(int players) {
             EnumMap<Res, Integer> m = Res.empty();
@@ -194,6 +196,7 @@ public final class Content {
         rules.colonizeCostPerPlayer = Res.parse(col.get("costPerPlayer"));
         rules.colonizeEscalationPerPlayer = Res.parse(col.get("extraPerTerritoryPerPlayer"));
         rules.colonizeFreeTerritories = Y.i(col, "territoriesBeforeExtra", 2);
+        rules.colonizeSettlersPerPlayer = Y.i(col, "settlersPerPlayer", 0);
         Map<String, Object> deck = Y.map(m.get("eraDeckSize"));
         rules.deckBase = Y.i(deck, "base", 16);
         rules.deckPerPlayer = Y.i(deck, "perPlayer", 10);
@@ -285,6 +288,7 @@ public final class Content {
         w.costPerPlayer = Res.parse(m.get("costPerPlayer"));
         w.effects = effects(m.get("effects"));
         w.victoryPoints = Y.i(m, "victoryPoints", 0);
+        w.obsoleteAfter = Y.s(m, "obsoleteAfter", null);
         return w;
     }
 

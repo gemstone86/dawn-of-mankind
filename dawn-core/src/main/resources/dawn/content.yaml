@@ -1,5 +1,6 @@
 # Dawn of Mankind — game content and rule numbers.
 #
+# Technologies are global: once anyone researches one, its lasting effects help every player.
 # Effects are one-key maps. See com.dawnofmankind.core.Effects for the full list:
 #   immediate: gain, lose, population, army, stability, health, draw, extraActions, addCrisis, destroyBuilding, freeBuilding
 #   lasting:   income, perWorker, handLimit, actionsPerTurn, raidDefense, mitigate, buildDiscount, sharedPool
@@ -22,6 +23,7 @@ rules:
     costPerPlayer: {food: 2, production: 2}
     extraPerTerritoryPerPlayer: {production: 1}   # for each territory beyond the first 2
     territoriesBeforeExtra: 2
+    settlersPerPlayer: 1                          # people who move to the new land (idle people first, then workers)
     # each point of colonization value (coasts, oceans) takes 1 per player off: production first, then food
   recruitCost: {production: 2}            # action "recruit": +1 troop
   foodUpkeepPerPop: 1
@@ -162,13 +164,21 @@ greatWonders:
     effects: [{income: {research: 4}}, {handLimit: 1}]
     victoryPoints: 2
     text: Every player +4 research per turn and +1 max hand size.
+  nomadic_living:
+    name: Nomadic Living
+    era: prehistoric
+    costPerPlayer: {production: 6, food: 3}       # cheap: about 2.5 rounds of the team's output
+    effects: [{freeSettlers: 1}]
+    victoryPoints: 1
+    obsoleteAfter: prehistoric
+    text: Settling any land takes 1 settler less. Obsolete once the Prehistoric era is over.
   great_lighthouse:
     name: The Great Lighthouse
     era: ancient
     costPerPlayer: {production: 12, food: 4}
-    effects: [{faceUpLands: 1}, {settleDiscount: {production: 2}}, {coreTerritory: 1}]
+    effects: [{faceUpLands: 1}, {settleDiscount: {production: 2}}, {freeSettlers: 1}, {coreTerritory: 1}]
     victoryPoints: 2
-    text: One more land lies face up. Settling any land costs 2 production less. Cores a territory (the one it stands in).
+    text: One more land lies face up. Settling any land costs 2 production and 1 settler less. Cores a territory (the one it stands in).
   colossus:
     name: The Colossus
     era: ancient
@@ -183,6 +193,7 @@ eras:
     cards:
       # great wonders (taking one puts it on the board for the team to build)
       stonehenge: 1
+      nomadic_living: 1
       # hostility: triggers when revealed, adding enemies to the next invasion
       hostility_1: 3
       hostility_2: 3
@@ -373,8 +384,8 @@ cards:
     name: Bronze Working
     type: tech
     cost: {research: 4, production: 3}
-    effects: [{raidDefense: 2}, {army: 1}]
-    text: +2 defense against raids and 1 troop.
+    effects: [{strengthPerTwoTroops: 1}]
+    text: Every player's military strength is +1 for every 2 troops (raids, invasions and enemy strength on lands).
   writing:
     name: Writing
     type: tech

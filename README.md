@@ -51,8 +51,8 @@ buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (St
 +1 research per turn, Coast: +1 colonization value, …). Farms and mines can only grow as far as the land allows
 (each player also has 2 home slots of each). Lands are settled by paying
 their whole cost, bit by bit: resources (per player 2 food and 2 production, +1 production for each territory beyond
-the first two, minus the realm's colonization value), troops equal to the land's **enemy strength** (half of the troops
-sent are lost) and, for some lands, settlers. Two lands lie **face up** from the start (Send Scouts turns up more); they stay until settled or
+the first two, minus the realm's colonization value), military strength equal to the land's **enemy strength** (half of
+the troops sent are lost) and settlers (1 per player; idle people go first, then workers). Two lands lie **face up** from the start (Send Scouts turns up more); they stay until settled or
 removed by an event (Rivals Claim the Land), and are paid toward with **Settle** cards: each card lets its player pay
 what they can now, and payments stay on the land. A settled one is replaced from the world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, and the special Rich Land,
 Fortified Land and Fertile Delta, which cost more) must be settled at once: everyone can pay toward them, free, in
@@ -96,7 +96,9 @@ Meteor Impact, Climate Change) are added to the future deck by certain events an
 **The game** is lost if Stability reaches 0, everyone's Population is gone or the realm has no territory left, and
 won by finishing the last era.
 The score is the victory points of the **great wonders** built (Stonehenge, the Pyramids, the Hanging Gardens, the
-Great Library, the Great Lighthouse, the Colossus), plus 1 per territory of the realm. Great wonders are cards in the era decks: whoever picks or draws one puts it on the
+Great Library, the Great Lighthouse, the Colossus, and the cheap Nomadic Living, whose free settler stops after the
+Prehistoric era), plus 1 per territory of the realm. **Technologies are global**: once anyone researches one, it
+helps every player. Great wonders are cards in the era decks: whoever picks or draws one puts it on the
 board, and everyone can contribute to it. Each costs about 4–5 rounds of the whole team's output (its cost is per
 player) and, when finished, stands in a territory of the team's choice. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
 bonuses and points in content.yaml are placeholders.

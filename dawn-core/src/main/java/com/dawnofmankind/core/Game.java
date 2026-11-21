@@ -650,6 +650,9 @@ public final class Game {
         if (d.type == CardType.RESPONSE) throw new GameException(d.name + " can only be played when an event resolves.");
         if (d.type == CardType.GREAT_WONDER) throw new GameException("Great wonders are built on the board.");
         if (p.owns(d)) throw new GameException("You already have " + d.name + ".");
+        if (d.type == CardType.TECH) {
+            for (Player o : players) if (o.techs.contains(d)) throw new GameException(o.name + " has already researched " + d.name + ": it helps everyone.");
+        }
         boolean settles = d.effects.stream().anyMatch(e -> e.containsKey("settle"));
         boolean cores = d.effects.stream().anyMatch(e -> e.containsKey("core"));
         Frontier land = null;
@@ -773,8 +776,22 @@ public final class Game {
         return f.enemy + f.land.def.armyPerPlayer * players.size();
     }
 
+    /** Settlers needed: per player (special lands their own number, other lands the rule's), minus free settlers. */
     public int settleSettlers(Frontier f) {
-        return f.land.def.populationPerPlayer * players.size();
+        int per = f.land.def.special ? f.land.def.populationPerPlayer : content.rules.colonizeSettlersPerPlayer;
+        return Math.max(0, per * players.size() - civMods().freeSettlers);
+    }
+
+    /** Military strength of a number of troops: Bronze Working adds 1 for every 2. */
+    public int strength(int troops) {
+        return troops + (troops / 2) * civMods().strengthPerTwoTroops;
+    }
+
+    /** The fewest troops whose strength reaches {@code needed}. */
+    private int troopsFor(int needed) {
+        int t = 0;
+        while (strength(t) < needed) t++;
+        return t;
     }
 
     /** What is still missing. */
@@ -799,7 +816,7 @@ public final class Game {
         if (troops < 0 || settlers < 0 || give.values().stream().anyMatch(v -> v < 0)) throw new GameException("Amounts can't be negative.");
         EnumMap<Res, Integer> left = settleLeft(f);
         give.replaceAll((r, v) -> Math.min(v, left.get(r)));
-        troops = Math.min(troops, Math.max(0, settleTroops(f) - f.troopsPaid));
+        troops = Math.min(troops, troopsFor(Math.max(0, settleTroops(f) - f.troopsPaid)));
         settlers = Math.min(settlers, Math.max(0, settleSettlers(f) - f.settlersPaid));
         for (Res r : Res.values()) {
             if (p.res.get(r) < give.get(r) + reserved.getOrDefault(r, 0)) throw new GameException("Not enough " + r.key() + ".");
@@ -820,7 +837,7 @@ public final class Game {
         // troops sent count fully against the land's enemy strength; half of them (rounded up) are lost, the rest return
         int troopsLost = (lp.troops() + 1) / 2;
         p.army -= troopsLost;
-        f.troopsPaid += lp.troops();
+        f.troopsPaid += strength(lp.troops());
         f.settlersPaid += lp.settlers();
         String what = Res.describe(lp.res()) + (lp.troops() > 0 ? ", " + lp.troops() + " troops (" + troopsLost + " lost)" : "") + (lp.settlers() > 0 ? ", " + lp.settlers() + " settlers" : "");
         log(p.name + " sends " + what + " toward the " + f.land.def.name + ".");
@@ -1089,7 +1106,7 @@ public final class Game {
 
     private void raid(Pending pe, Player t, double factor) {
         CardDef d = pe.event.def;
-        int defense = Math.max(0, t.army - t.committed) + mods(t).raidDefense + pe.defenseBonus;
+        int defense = strength(Math.max(0, t.army - t.committed)) + mods(t).raidDefense + pe.defenseBonus;
         int s = pe.strength;
         // the troops that fight (up to the raid's strength) are spent; half of them, rounded up, are lost
         int spent = Math.min(Math.max(0, t.army - t.committed), s);
@@ -1118,7 +1135,7 @@ public final class Game {
             threat = 0;
         }
         int sent = pe.troops.values().stream().mapToInt(Integer::intValue).sum();
-        int total = sent + pe.defenseBonus + civMods().invasionDefense;
+        int total = pe.troops.values().stream().mapToInt(this::strength).sum() + pe.defenseBonus + civMods().invasionDefense;
         int s = pe.strength;
         pe.troops.forEach((seat, n) -> players.get(seat).committed += n);
         // the troops spent (up to the invasion's strength) lose half, rounded up, split between the senders
@@ -1352,11 +1369,12 @@ public final class Game {
 
     // ------------------------------------------------------------------------------------------------ queries
 
+    /** Technologies are global: every player gets the lasting effects of every tech researched by anyone. */
     public Mods mods(Player p) {
         Mods m = new Mods();
-        for (CardDef t : p.techs) m.add(t.effects);
+        for (Player o : players) for (CardDef t : o.techs) m.add(t.effects);
         for (CardDef w : p.minorWonders) m.add(w.effects);
-        for (WonderDef w : builtWonders) m.add(w.effects);
+        for (WonderDef w : builtWonders) if (!obsolete(w)) m.add(w.effects);
         for (CardInst e : persistentEvents) m.add(e.def.ongoing);
         for (Territory t : realm) m.add(t.def.effects);
         return m;
@@ -1369,9 +1387,16 @@ public final class Game {
             for (CardDef t : p.techs) m.add(t.effects);
             for (CardDef w : p.minorWonders) m.add(w.effects);
         }
-        for (WonderDef w : builtWonders) m.add(w.effects);
+        for (WonderDef w : builtWonders) if (!obsolete(w)) m.add(w.effects);
         for (Territory t : realm) m.add(t.def.effects);
         return m;
+    }
+
+    /** A wonder that belongs to an earlier era's way of life (e.g. Nomadic Living) stops working after that era. */
+    public boolean obsolete(WonderDef w) {
+        if (w.obsoleteAfter == null) return false;
+        for (int i = 0; i < content.eras.size(); i++) if (content.eras.get(i).id.equals(w.obsoleteAfter)) return eraIndex > i;
+        return false;
     }
 
     public int handLimit(Player p) {

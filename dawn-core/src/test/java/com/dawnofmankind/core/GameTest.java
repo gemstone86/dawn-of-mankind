@@ -88,7 +88,10 @@ class GameTest {
     void hostilityMassesEnemiesForTheNextInvasion() {
         Game g = game(2, 16);
         int before = g.threat;
-        g.eraDeck.add(0, card(g, "hostility_2"));
+        g.eraDeck.clear();
+        g.eraDeck.add(card(g, "hostility_2"));
+        g.eraDeck.add(card(g, "foraging"));
+        g.eraDeck.add(card(g, "foraging"));
         Player p = g.players.get(g.currentPlayer);
         p.hand.add(card(g, "storytelling"));
         g.act(p.seat, Map.of("type", "play", "card", p.hand.get(p.hand.size() - 1).id)); // draws 2: reveals the hostility card
@@ -97,9 +100,45 @@ class GameTest {
     }
 
     @Test
+    void techsAreGlobal() {
+        Game g = game(2, 18);
+        Player a = g.players.get(g.currentPlayer), b = g.players.get(1 - g.currentPlayer);
+        Player.Building bMine = b.ofType("mine");
+        int before = View.income(g, b, g.mods(b)).get("production");
+        a.res.put(Res.RESEARCH, 10);
+        a.res.put(Res.PRODUCTION, 10);
+        Game.CardInst tools = card(g, "stone_tools");
+        a.hand.add(tools);
+        g.act(a.seat, Map.of("type", "play", "card", tools.id));
+        assertEquals(before + bMine.workers, View.income(g, b, g.mods(b)).get("production"), "the other player's miners gain too");
+    }
+
+    @Test
+    void bronzeWorkingAddsStrength() {
+        Game g = game(2, 19);
+        assertEquals(4, g.strength(4));
+        g.players.get(0).techs.add(C.cards.get("bronze_working"));
+        assertEquals(6, g.strength(4), "+1 per 2 troops");
+        assertEquals(1, g.strength(1));
+    }
+
+    @Test
+    void nomadicLivingGivesAFreeSettlerUntilTheEraEnds() {
+        Game g = game(2, 20);
+        Game.Frontier f = g.frontier.get(0);
+        assertEquals(2, g.settleSettlers(f));
+        g.builtWonders.add(C.greatWonders.get("nomadic_living"));
+        assertEquals(1, g.settleSettlers(f));
+        g.eraIndex = 1;
+        assertEquals(2, g.settleSettlers(f), "obsolete in the Ancient era");
+    }
+
+    @Test
     void territoriesScore() {
         Game g = game(1, 17);
         assertEquals(g.realm.size(), g.score());
+        g.builtWonders.add(C.greatWonders.get("nomadic_living"));
+        assertEquals(g.realm.size() + 1, g.score());
     }
 
     @Test
@@ -158,8 +197,10 @@ class GameTest {
         p.hand.add(s2);
         Map<String, Object> all = new java.util.HashMap<>();
         for (Res r : Res.values()) all.put(r.key(), 50);
-        g.act(p.seat, Map.of("type", "play", "card", s2.id, "land", f.land.id, "resources", all, "army", 5));
+        p.idle += 5;
+        g.act(p.seat, Map.of("type", "play", "card", s2.id, "land", f.land.id, "resources", all, "army", 5, "population", 5));
         assertEquals(3, g.realm.size());
+        assertEquals(5 + 3 - 2, p.population(), "2 settlers (1 per player) left; workers or idle people can go");
         assertEquals(4, p.army, "only the missing 2 troops were sent, 1 lost");
         assertEquals(2, g.frontier.size(), "the settled land is replaced");
     }

@@ -17,7 +17,8 @@ import java.util.Set;
  *
  * <p><b>Lasting</b> (active while the owner holds the tech or wonder, or while a persistent event is in play):
  * income, perWorker, handLimit, actionsPerTurn, raidDefense, invasionDefense, mitigate, buildDiscount, sharedPool,
- * victoryPoints, faceUpLands (more lands face up), settleDiscount (off every land's settling cost).
+ * victoryPoints, faceUpLands (more lands face up), settleDiscount (off every land's settling cost), freeSettlers
+ * (fewer settlers needed per land), strengthPerTwoTroops (military strength +n for every 2 troops).
  * coreTerritory (great wonders, when finished): cores the territory the wonder stands in, else another one.
  *
  * <p><b>Response</b> (only on response cards, for the event being resolved): defense, halve, cancel, healthBonus.
@@ -28,7 +29,7 @@ public final class Effects {
     static final Set<String> IMMEDIATE = Set.of("gain", "lose", "population", "army", "stability", "health", "draw",
             "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover", "enemy", "settle", "core", "removeLand", "coreTerritory", "hostility");
     static final Set<String> LASTING = Set.of("income", "perWorker", "handLimit", "actionsPerTurn", "raidDefense",
-            "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense", "faceUpLands", "settleDiscount");
+            "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense", "faceUpLands", "settleDiscount", "freeSettlers", "strengthPerTwoTroops");
     static final Set<String> RESPONSE = Set.of("defense", "halve", "cancel", "healthBonus");
 
     static String key(Map<String, Object> e) {
@@ -49,7 +50,7 @@ public final class Effects {
         public final EnumMap<Res, Integer> buildDiscount = Res.empty();
         public final EnumMap<Res, Integer> poolIncome = Res.empty();
         public final Set<String> mitigate = new HashSet<>();
-        public int handLimit, actionsPerTurn, raidDefense, victoryPoints, invasionDefense, faceUpLands;
+        public int handLimit, actionsPerTurn, raidDefense, victoryPoints, invasionDefense, faceUpLands, freeSettlers, strengthPerTwoTroops;
         public final EnumMap<Res, Integer> settleDiscount = Res.empty();
         public boolean sharedPool;
 
@@ -75,6 +76,8 @@ public final class Effects {
                 case "raidDefense" -> raidDefense += Y.toInt(v);
                 case "invasionDefense" -> invasionDefense += Y.toInt(v);
                 case "faceUpLands" -> faceUpLands += Y.toInt(v);
+                case "freeSettlers" -> freeSettlers += Y.toInt(v);
+                case "strengthPerTwoTroops" -> strengthPerTwoTroops += Y.toInt(v);
                 case "settleDiscount" -> Res.parse(v).forEach((r, n) -> settleDiscount.merge(r, n, Integer::sum));
                 case "victoryPoints" -> victoryPoints += Y.toInt(v);
                 case "mitigate" -> mitigate.addAll(Y.strings(v));

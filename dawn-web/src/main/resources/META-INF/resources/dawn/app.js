@@ -210,7 +210,8 @@ function renderRealm() {
     const troopsLeft = f.troops - f.troopsPaid, settlersLeft = f.settlers - f.settlersPaid;
     const inputs = `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" max="${f.left[k]}" value="0" data-keep="f-${f.id}-${k}" data-fres="${k}"></label>`).join('')}
       ${troopsLeft > 0 ? `<label style="margin:0">Troops <input type="number" min="0" max="${troopsLeft}" value="0" data-keep="f-${f.id}-army" data-farmy></label>` : ''}
-      ${settlersLeft > 0 ? `<label style="margin:0">Settlers <input type="number" min="0" max="${settlersLeft}" value="0" data-keep="f-${f.id}-pop" data-fpop></label>` : ''}</div>`;
+      ${settlersLeft > 0 ? `<label style="margin:0" title="Idle people go first, then workers">Settlers <input type="number" min="0" max="${settlersLeft}" value="0" data-keep="f-${f.id}-pop" data-fpop></label>` : ''}</div>
+      ${settlersLeft > 0 ? '<div class="small muted">Settlers can be idle people or workers (idle people go first).</div>' : ''}`;
     const canSendNow = f.duringEvent ? s.phase === 'events' && s.pending && !s.pending.ready[s.you] : canAct();
     const button = f.fromEvent
       ? `<button ${canSendNow ? '' : 'disabled'} data-colonize="${f.id}">${f.duringEvent ? 'Send (free)' : 'Send (1 action)'}</button>`
@@ -219,7 +220,7 @@ function renderRealm() {
     return `<div class="cardx frontier ${f.fromEvent ? 'eventland' : ''}" data-f="${f.id}">
       <div class="type">${f.fromEvent ? (f.duringEvent ? 'Found by this event · settle it now or lose it' : 'Scouted · settle it this turn or lose it') : 'Face-up land'}${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
       <div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
-      <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.troops ? ` · troops ${f.troopsPaid}/${f.troops}` : ''}${f.settlers ? ` · settlers ${f.settlersPaid}/${f.settlers}` : ''}</div>
+      <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.troops ? ` · military strength ${f.troopsPaid}/${f.troops}` : ''}${f.settlers ? ` · settlers ${f.settlersPaid}/${f.settlers}` : ''}</div>
       ${by}${inputs}<div class="row">${button}</div></div>`;
   }).join('');
   $('realmPanel').innerHTML = `<h2>The realm</h2>
@@ -256,7 +257,7 @@ function renderWonders() {
       <div class="name">${esc(w.name)}${w.done ? ' ✓' : ''}</div><div class="text">${esc(w.text)}</div>
       <div class="small">Paid ${resList(w.paid, { all: false })} of ${resList(w.cost)}</div><div class="prog"><div style="width:${total ? 100 * paid / total : 0}%"></div></div>${by}${form}</div>`;
   }).join('');
-  const built = s.builtWonders.length ? `<p class="small">Built: ${s.builtWonders.map(w => `<span class="chip">${esc(w.name)} (${w.victoryPoints})</span>`).join('')}</p>` : '';
+  const built = s.builtWonders.length ? `<p class="small">Built: ${s.builtWonders.map(w => `<span class="chip" title="${esc(w.text)}">${esc(w.name)} (${w.victoryPoints})${w.obsolete ? ' · obsolete' : ''}</span>`).join('')}</p>` : '';
   $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Each stands in a territory: lose the territory, lose the wonder. Their points, plus 1 per territory, are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
 }
 $('wonderPanel').onclick = e => {
@@ -353,7 +354,9 @@ function renderCiv() {
     <div class="row">${resList(p.resources, { all: true })}</div>
     <div class="row small muted">Per round: ${resList(p.income, { signed: true })} (food after feeding your people)</div>
     <div class="row small">Population <b>${p.population}</b> · idle ${p.idle} · Army <b>${p.army}</b>${p.committed ? ` (${p.committed} away at war)` : ''} · raid defense +${p.raidDefense} · hand ${p.handSize}/${p.handLimit}</div>
-    ${p.techs.length || p.minorWonders.length ? `<div class="small">${p.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${p.minorWonders.map(t => `<span class="chip" title="${esc(t.text)}">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
+    ${(() => { const techs = s.players.flatMap(o => o.techs); return techs.length ? `<div class="small">Technologies (they help everyone): ${techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}</div>` : ''; })()}
+    ${p.minorWonders.length ? `<div class="small">${p.minorWonders.map(t => `<span class="chip" title="${esc(t.text)}">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
+    ${s.strengthPerTwoTroops || s.freeSettlers ? `<div class="small muted">${s.strengthPerTwoTroops ? `Military strength +${s.strengthPerTwoTroops} per 2 troops. ` : ''}${s.freeSettlers ? `Settling takes ${s.freeSettlers} settler${s.freeSettlers > 1 ? 's' : ''} less.` : ''}</div>` : ''}
     <h3 style="margin-top:.5rem">Buildings</h3><p class="small muted" style="margin:0">● worker · ○ empty slot · <span style="opacity:.5">●</span> room on your land, not built yet</p>${blds}
     <div class="row small">Move a worker <select id="mvFrom" data-keep="mvFrom">${moveOpts}</select> → <select id="mvTo" data-keep="mvTo">${moveOpts}</select><button ${act ? '' : 'disabled'} data-move>Move (1 action)</button></div>
     <h3>Actions</h3><p class="small muted" style="margin:0">Building something you already have adds worker slots to it; each level costs 1 more production. Farms and mines need land.</p>
