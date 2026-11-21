@@ -26,7 +26,7 @@ public final class Player {
         }
 
         public int level() {
-            return Math.max(1, slots / Math.max(1, def.slots));
+            return Math.max(1, (slots + def.slots - 1) / Math.max(1, def.slots));
         }
     }
 

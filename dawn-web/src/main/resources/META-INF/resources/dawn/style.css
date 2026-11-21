@@ -67,6 +67,8 @@ label { display: block; font-size: .85rem; color: var(--bone-dim); margin: .6rem
 .cardx.action { border-left: 3px solid var(--production); }
 .cardx.response { border-left: 3px solid var(--moss); }
 .cardx.minor_wonder { border-left: 3px solid var(--brass); }
+.cardx.territory { border-left: 3px solid var(--moss); padding: .3rem .55rem; }
+.cardx.frontier { border: 1px dashed var(--moss); }
 .cardx.great_wonder { border: 1px solid var(--brass); background: #2f2c22; }
 .queue-strip { margin: .8rem .8rem 0; }
 .queue-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; }

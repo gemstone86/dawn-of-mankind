@@ -40,8 +40,18 @@ that breaks a game shows up there. The bots' win rate is printed; it is a rough 
 ## The rules as built
 
 **Each player** starts with a Farm (2 farmers) and a Mine (1 miner): 3 Population. Every building has 2 worker
-slots. Building a type you already have adds a level (2 more slots) instead of a second building; events that
-destroy a building take a level away. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
+slots. Building a type you already have adds a level (2 more slots) instead of a second building, and each level
+costs 1 production more than the last. Events that destroy a building take a level away. Growing costs 3 food,
++1 for every 4 people beyond the first.
+
+**The realm** is the team's shared land, drawn from a **world deck** of territories (Plains, Mountains, Steppe,
+Jungle, Coast, Forest, Ocean): 2 at the start. Each territory gives every player worker slots for land-bound
+buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (Steppe: +2 military strength, Jungle:
++1 research per turn, Coast: +1 colonization value, …). Farms and mines can only grow as far as the land allows
+(each player also has 2 home slots of each). Discovery events and the Send Scouts card put new lands on the
+**frontier**; the team settles one by paying its cost together: per player 2 food and 2 production, +1 production
+for each territory beyond the first two, minus the realm's colonization value. The Rich Land costs 2 settlers and
+2 troops per player instead. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
 culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population eats 1 food per round.
 
 **A round**
@@ -63,17 +73,21 @@ too, and they draw again). Blind-drawn events also go face down to the future de
 is discarded. The starting event deck holds 2 Prehistoric events per player.
 
 **Raids** strike one player, who defends alone (army + raid defense + response cards). **Invasions** strike
-everyone; each player decides how many troops to send. **Crisis cards** (Black Plague, Supervolcano Eruption,
+everyone; their strength is players × territories, and each player decides how many troops to send. An invasion
+that breaks through takes a random territory: every player's buildings shrink to what the remaining land allows, and
+a great wonder standing there is lost. **Crisis cards** (Black Plague, Supervolcano Eruption,
 Meteor Impact, Climate Change) are added to the future deck by certain events and when a player's Population hits
 0 (which also costs 1 Stability). Technologies can soften them.
 
 **Eras** end when the era deck runs out or the era's trigger event resolves. Unfinished great wonders are lost then
 (half is returned).
 
-**The game** is lost if Stability reaches 0 or everyone's Population is gone, and won by finishing the last era.
+**The game** is lost if Stability reaches 0, everyone's Population is gone or the realm has no territory left, and
+won by finishing the last era.
 The score is the victory points of the **great wonders** built (Stonehenge, the Pyramids, the Hanging Gardens, the
 Great Library, the Colossus). Great wonders are cards in the era decks: whoever picks or draws one puts it on the
-board, and everyone can contribute to it. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
+board, and everyone can contribute to it. Each costs about 3.5 rounds of the whole team's output (its cost is per
+player) and, when finished, stands in a territory of the team's choice. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
 bonuses and points in content.yaml are placeholders.
 
 ### Choices made where the requirements were open (all easy to change)
@@ -88,3 +102,7 @@ bonuses and points in content.yaml are placeholders.
 - Curses (Bad Omen, Wrath of the Gods) also cost 1 Stability per round until lifted.
 - Events left in the event decks carry over into the next era; an old era's trigger event is retired.
 - Happiness is not in the game yet.
+- Territory bonuses go to every player. Forest and Ocean bonuses are placeholders (you named those lands without
+  bonuses). Steppe's +2 military strength counts for every raid defense and for the united army in invasions.
+- Discovered lands not settled by the end of the era are lost (half of what was paid is returned).
+- Settling a land is an action (1 per contribution), like contributing to a wonder.

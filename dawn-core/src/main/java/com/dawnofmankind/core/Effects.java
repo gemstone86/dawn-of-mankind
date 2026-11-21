@@ -11,10 +11,12 @@ import java.util.Set;
  * The effect vocabulary used in content.yaml. Each effect is a one-key map, e.g. {@code - gain: {food: 2}}.
  *
  * <p><b>Immediate</b> (applied once, when a card is played, a wonder is finished or an event resolves):
- * gain, lose, population, army, stability, health, draw, extraActions, addCrisis, destroyBuilding, freeBuilding.
+ * gain, lose, population, army, stability, health, draw, extraActions, addCrisis, destroyBuilding, freeBuilding,
+ * discover (put lands from the world deck, or a named special land, on the frontier).
  *
  * <p><b>Lasting</b> (active while the owner holds the tech or wonder, or while a persistent event is in play):
- * income, perWorker, handLimit, actionsPerTurn, raidDefense, mitigate, buildDiscount, sharedPool, victoryPoints.
+ * income, perWorker, handLimit, actionsPerTurn, raidDefense, invasionDefense, mitigate, buildDiscount, sharedPool,
+ * victoryPoints.
  *
  * <p><b>Response</b> (only on response cards, for the event being resolved): defense, halve, cancel, healthBonus.
  */
@@ -22,9 +24,9 @@ public final class Effects {
     private Effects() {}
 
     static final Set<String> IMMEDIATE = Set.of("gain", "lose", "population", "army", "stability", "health", "draw",
-            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding");
+            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover");
     static final Set<String> LASTING = Set.of("income", "perWorker", "handLimit", "actionsPerTurn", "raidDefense",
-            "mitigate", "buildDiscount", "sharedPool", "victoryPoints");
+            "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense");
     static final Set<String> RESPONSE = Set.of("defense", "halve", "cancel", "healthBonus");
 
     static String key(Map<String, Object> e) {
@@ -45,7 +47,7 @@ public final class Effects {
         public final EnumMap<Res, Integer> buildDiscount = Res.empty();
         public final EnumMap<Res, Integer> poolIncome = Res.empty();
         public final Set<String> mitigate = new HashSet<>();
-        public int handLimit, actionsPerTurn, raidDefense, victoryPoints;
+        public int handLimit, actionsPerTurn, raidDefense, victoryPoints, invasionDefense;
         public boolean sharedPool;
 
         void add(List<Map<String, Object>> effects) {
@@ -68,6 +70,7 @@ public final class Effects {
                 case "handLimit" -> handLimit += Y.toInt(v);
                 case "actionsPerTurn" -> actionsPerTurn += Y.toInt(v);
                 case "raidDefense" -> raidDefense += Y.toInt(v);
+                case "invasionDefense" -> invasionDefense += Y.toInt(v);
                 case "victoryPoints" -> victoryPoints += Y.toInt(v);
                 case "mitigate" -> mitigate.addAll(Y.strings(v));
                 case "sharedPool" -> {

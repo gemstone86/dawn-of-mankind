@@ -70,6 +70,16 @@ final class Bot {
             for (Res r : Res.values()) m.put(r.key(), give.get(r));
             if (tryAct(g, p, Map.of("type", "contribute", "wonder", w.def.id, "resources", m))) return true;
         }
+        for (Game.Frontier f : g.frontier) {
+            Map<String, Object> m = new HashMap<>();
+            for (Res r : Res.values()) {
+                int need = f.cost.get(r) - f.paid.get(r);
+                m.put(r.key(), Math.max(0, Math.min(need, p.res.get(r) - (r == Res.FOOD ? pop : 0))));
+            }
+            int people = pop > 3 ? Math.min(f.population - f.populationPaid, pop - 3) : 0;
+            int troops = Math.min(f.army - f.armyPaid, Math.max(0, p.army - p.committed - 1));
+            if (tryAct(g, p, Map.of("type", "colonize", "land", f.land.id, "resources", m, "population", people, "army", troops))) return true;
+        }
         if (!g.queue.isEmpty() && p.hand.size() < g.handLimit(p)) {
             return tryAct(g, p, Map.of("type", "pick", "slot", rng.nextInt(g.queue.size())));
         }

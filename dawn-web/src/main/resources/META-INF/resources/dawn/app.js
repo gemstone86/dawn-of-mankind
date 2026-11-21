@@ -117,6 +117,7 @@ function render(m) {
   document.querySelectorAll('#game [data-keep]').forEach(el => { kept[el.dataset.keep] = el.type === 'checkbox' ? el.checked : el.value; });
   renderStatus();
   renderQueue();
+  renderRealm();
   renderWonders();
   renderEvents();
   renderCiv();
@@ -195,12 +196,46 @@ function renderQueue() {
 }
 $('queuePanel').onclick = e => { const b = e.target.closest('[data-pick]'); if (b) send({ type: 'pick', slot: +b.dataset.pick }); };
 
+const slotText = slots => Object.entries(slots || {}).map(([b, n]) => `+${n} ${b}`).join(', ');
+
+function renderRealm() {
+  const s = state;
+  const lands = s.realm.map(t => `<div class="cardx territory"><div class="type">Territory</div><div class="name">${esc(t.name)}</div>
+      <div class="text">${esc(t.text)}</div>${t.wonders.length ? `<div class="small">${t.wonders.map(w => `<span class="chip">★ ${esc(w)}</span>`).join('')}</div>` : ''}</div>`).join('');
+  const front = s.frontier.map(f => {
+    const need = RES.filter(k => f.cost[k] > 0);
+    const left = k => f.cost[k] - f.paid[k];
+    const form = `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" max="${left(k)}" value="0" data-keep="f-${f.id}-${k}" data-fres="${k}"></label>`).join('')}
+        ${f.population ? `<label style="margin:0">Settlers <input type="number" min="0" value="0" data-keep="f-${f.id}-pop" data-fpop></label>` : ''}
+        ${f.army ? `<label style="margin:0">Troops <input type="number" min="0" value="0" data-keep="f-${f.id}-army" data-farmy></label>` : ''}</div>
+      <div class="row"><button ${canAct() ? '' : 'disabled'} data-colonize="${f.id}">Send (1 action)</button></div>`;
+    const by = Object.entries(f.bySeat).map(([n, r]) => `<div class="small muted">${esc(n)}: ${resList(r)}</div>`).join('');
+    return `<div class="cardx frontier" data-f="${f.id}"><div class="type">Frontier</div><div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
+      <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.population ? ` · settlers ${f.populationPaid}/${f.population}` : ''}${f.army ? ` · troops ${f.armyPaid}/${f.army}` : ''}</div>${by}${form}</div>`;
+  }).join('');
+  $('realmPanel').innerHTML = `<h2>The realm</h2>
+    <p class="muted small">Shared land. Each territory gives every player room for buildings and its bonus. A broken invasion costs a territory; with none left, the game is lost.
+    World deck: ${s.worldDeck} lands · colonization value ${s.colonizationValue}.</p>
+    <div class="cards">${lands}</div>
+    ${s.frontier.length ? `<h3 style="margin-top:.6rem">Frontier</h3><p class="muted small">Discovered lands. Pay together to settle them before the era ends.</p><div class="cards">${front}</div>` : ''}`;
+}
+$('realmPanel').onclick = e => {
+  const b = e.target.closest('[data-colonize]'); if (!b) return;
+  const box = b.closest('[data-f]'), resources = {};
+  box.querySelectorAll('[data-fres]').forEach(i => { resources[i.dataset.fres] = Math.max(0, +i.value || 0); i.value = 0; });
+  const pop = box.querySelector('[data-fpop]'), army = box.querySelector('[data-farmy]');
+  send({ type: 'colonize', land: +b.dataset.colonize, resources, population: pop ? +pop.value || 0 : 0, army: army ? +army.value || 0 : 0 });
+  if (pop) pop.value = 0;
+  if (army) army.value = 0;
+};
+
 function renderWonders() {
   const s = state;
   const list = s.greatWonders.map(w => {
     const total = RES.reduce((a, k) => a + w.cost[k], 0), paid = RES.reduce((a, k) => a + w.paid[k], 0);
     const need = RES.filter(k => w.cost[k] > 0);
     const form = w.done ? '' : `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" value="0" data-keep="w-${w.key}-${k}" data-wres="${k}"></label>`).join('')}</div>
+      <div class="row small">If this finishes it, place it in <select data-keep="w-${w.key}-where" data-wwhere>${s.realm.map(t => `<option value="${t.id}">${esc(t.name)}${t.wonders.length ? ' (' + t.wonders.length + ' wonder' + (t.wonders.length > 1 ? 's' : '') + ')' : ''}</option>`).join('')}</select></div>
       <div class="row">${s.sharedPool ? `<label class="small" style="margin:0"><input type="checkbox" data-keep="w-${w.key}-pool" data-wpool> from shared pool</label>` : ''}
       <button ${canAct() ? '' : 'disabled'} data-wonder="${w.key}">Contribute (1 action)</button></div>`;
     const by = Object.entries(w.bySeat).map(([n, r]) => `<div class="small muted">${esc(n)}: ${resList(r)}</div>`).join('');
@@ -209,14 +244,15 @@ function renderWonders() {
       <div class="small">Paid ${resList(w.paid, { all: false })} of ${resList(w.cost)}</div><div class="prog"><div style="width:${total ? 100 * paid / total : 0}%"></div></div>${by}${form}</div>`;
   }).join('');
   const built = s.builtWonders.length ? `<p class="small">Built: ${s.builtWonders.map(w => `<span class="chip">${esc(w.name)} (${w.victoryPoints})</span>`).join('')}</p>` : '';
-  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Their points are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
+  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Each stands in a territory: lose the territory, lose the wonder. Their points are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
 }
 $('wonderPanel').onclick = e => {
   const b = e.target.closest('[data-wonder]'); if (!b) return;
   const box = b.closest('[data-w]'), resources = {};
   box.querySelectorAll('[data-wres]').forEach(i => { resources[i.dataset.wres] = Math.max(0, +i.value || 0); });
   const pool = box.querySelector('[data-wpool]');
-  send({ type: 'contribute', wonder: b.dataset.wonder, resources, fromPool: !!(pool && pool.checked) });
+  const where = box.querySelector('[data-wwhere]');
+  send({ type: 'contribute', wonder: b.dataset.wonder, resources, fromPool: !!(pool && pool.checked), territory: where ? +where.value : -1 });
   box.querySelectorAll('[data-wres]').forEach(i => { i.value = 0; });
 };
 
@@ -270,13 +306,20 @@ $('eventPanel').onclick = e => {
 
 function renderCiv() {
   const s = state, p = me(), act = canAct();
+  const capOf = id => (s.buildable || []).find(x => x.id === id)?.capacity;
   const blds = p.buildings.map(b => `<div class="bld"><span class="bname">${esc(b.name)}${b.level > 1 ? ` <span class="chip">level ${b.level}</span>` : ''}</span>
       <span class="slots">${Array.from({ length: b.slots }, (_, i) => `<span class="slot ${i < b.workers ? 'full' : ''}"></span>`).join('')}</span>
       <button class="tiny" ${act && p.idle > 0 && b.workers < b.slots ? '' : 'disabled'} data-move-in="${b.id}" title="Move an idle worker here (1 action)">+ worker</button>
-      <button class="tiny" ${act && b.workers > 0 ? '' : 'disabled'} data-move-out="${b.id}" title="Make a worker idle (1 action)">− worker</button></div>`).join('');
+      <button class="tiny" ${act && b.workers > 0 ? '' : 'disabled'} data-move-out="${b.id}" title="Make a worker idle (1 action)">− worker</button>
+      ${capOf(b.type) != null ? `<span class="small muted">land allows ${capOf(b.type)} slots</span>` : ''}</div>`).join('');
   const moveOpts = [['idle', `Idle (${p.idle})`], ...p.buildings.map(b => [b.id, `${b.name} #${b.id} (${b.workers}/${b.slots})`])]
     .map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('');
-  const build = (s.buildable || []).map(b => `<button ${act && affordable(b.cost) ? '' : 'disabled'} data-build="${b.id}" title="${esc(b.text)}">${b.owned ? `Expand ${esc(b.name)} (+${b.slotsAdded} slots)` : `Build ${esc(b.name)}`} — ${resList(b.cost)}</button>`).join('');
+  const build = (s.buildable || []).map(b => {
+    const full = b.capacity != null && b.slots >= b.capacity;
+    const add = b.capacity != null ? Math.min(b.slotsAdded, b.capacity - b.slots) : b.slotsAdded;
+    return `<button ${act && !full && affordable(b.cost) ? '' : 'disabled'} data-build="${b.id}" title="${esc(b.text)}">${full ? `${esc(b.name)}: no room — settle more land`
+      : b.owned ? `Expand ${esc(b.name)} (+${add} slot${add > 1 ? 's' : ''})` : `Build ${esc(b.name)}`}${full ? '' : ' — ' + resList(b.cost)}</button>`;
+  }).join('');
   $('civPanel').className = 'panel mine';
   $('civPanel').innerHTML = `<h2>Your people — ${esc(p.name)}</h2>
     <div class="row">${resList(p.resources, { all: true })}</div>
@@ -285,7 +328,7 @@ function renderCiv() {
     ${p.techs.length || p.minorWonders.length ? `<div class="small">${p.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${p.minorWonders.map(t => `<span class="chip" title="${esc(t.text)}">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
     <h3 style="margin-top:.5rem">Buildings</h3>${blds}
     <div class="row small">Move a worker <select id="mvFrom" data-keep="mvFrom">${moveOpts}</select> → <select id="mvTo" data-keep="mvTo">${moveOpts}</select><button ${act ? '' : 'disabled'} data-move>Move (1 action)</button></div>
-    <h3>Actions</h3><p class="small muted" style="margin:0">Building something you already have adds worker slots to it.</p>
+    <h3>Actions</h3><p class="small muted" style="margin:0">Building something you already have adds worker slots to it; each level costs 1 more production. Farms and mines need land.</p>
     <div class="row">${build}</div>
     <div class="row">
       <button ${act && affordable(s.rules.growthCost) ? '' : 'disabled'} data-grow>Grow +1 Population — ${resList(s.rules.growthCost)}</button>

@@ -4,6 +4,7 @@ import com.dawnofmankind.core.Content.BuildingDef;
 import com.dawnofmankind.core.Content.CardDef;
 import com.dawnofmankind.core.Content.CardType;
 import com.dawnofmankind.core.Content.EraDef;
+import com.dawnofmankind.core.Content.TerritoryDef;
 import com.dawnofmankind.core.Content.WonderDef;
 import com.dawnofmankind.core.Effects.Mods;
 import com.dawnofmankind.core.Player.Building;
@@ -61,6 +62,39 @@ public final class Game {
         }
     }
 
+    /** A territory of the shared realm (or one waiting on the frontier). Great wonders stand in a territory. */
+    public static final class Territory {
+        public final int id;
+        public final TerritoryDef def;
+        public final List<WonderDef> wonders = new ArrayList<>();
+
+        Territory(int id, TerritoryDef def) {
+            this.id = id;
+            this.def = def;
+        }
+    }
+
+    /** A discovered land the team can colonize together by paying its cost. */
+    public static final class Frontier {
+        public final Territory land;
+        public final EnumMap<Res, Integer> cost;
+        public final int population, army;
+        public final EnumMap<Res, Integer> paid = Res.empty();
+        public int populationPaid, armyPaid;
+        public final Map<Integer, EnumMap<Res, Integer>> bySeat = new LinkedHashMap<>();
+
+        Frontier(Territory land, EnumMap<Res, Integer> cost, int population, int army) {
+            this.land = land;
+            this.cost = cost;
+            this.population = population;
+            this.army = army;
+        }
+
+        boolean complete() {
+            return paid.equals(cost) && populationPaid >= population && armyPaid >= army;
+        }
+    }
+
     /** The event being resolved and the players' responses to it. */
     public static final class Pending {
         public final CardInst event;
@@ -104,6 +138,9 @@ public final class Game {
     public final List<WonderProgress> greatWonders = new ArrayList<>();
     public final List<WonderDef> builtWonders = new ArrayList<>();
     public final EnumMap<Res, Integer> pool = Res.empty();
+    public final List<Territory> worldDeck = new ArrayList<>();
+    public final List<Territory> realm = new ArrayList<>();
+    public final List<Frontier> frontier = new ArrayList<>();
 
     private List<CardInst> drawn = new ArrayList<>();
     private int drawnIndex;
@@ -121,6 +158,11 @@ public final class Game {
         this.content = content;
         this.rng = new Random(seed);
         Content.Rules r = content.rules;
+        for (TerritoryDef t : content.territories.values()) {
+            if (!t.special) for (int i = 0; i < t.copies; i++) worldDeck.add(new Territory(nextId++, t));
+        }
+        Collections.shuffle(worldDeck, rng);
+        for (int i = 0; i < r.startTerritories && !worldDeck.isEmpty(); i++) realm.add(worldDeck.remove(0));
         for (int i = 0; i < names.size(); i++) {
             Player p = new Player(i, names.get(i));
             r.startResources.forEach((k, v) -> p.res.put(k, v));
@@ -142,7 +184,8 @@ public final class Game {
         Collections.shuffle(start, rng);
         int n = Math.min(start.size(), r.startingEventsPerPlayer * players.size());
         currentEvents.addAll(start.subList(0, n));
-        log("The tribes gather. " + n + " events wait in the event deck.");
+        log("The tribes gather in a land of " + String.join(" and ", realm.stream().map(t -> t.def.name).toList())
+                + ". " + plural(n, "event") + " wait in the event deck.");
         startEra();
         startRound();
     }
@@ -200,6 +243,11 @@ public final class Game {
             log(w.def.name + " was not finished" + (Res.isZero(w.paid) ? "." : "; half of what was paid is returned."));
         }
         greatWonders.removeIf(w -> !w.done);
+        for (Frontier f : frontier) {
+            f.bySeat.forEach((seat, paid) -> paid.forEach((r, v) -> players.get(seat).res.merge(r, v / 2, Integer::sum)));
+            log("The " + f.land.def.name + " on the frontier was not settled" + (Res.isZero(f.paid) ? "." : "; half of what was paid is returned."));
+        }
+        frontier.clear();
         if (eraIndex + 1 >= content.eras.size()) {
             end("victory", "The civilization endured to the end of the " + era().name + " era.");
             return;
@@ -323,7 +371,7 @@ public final class Game {
             CardDef d = e.def;
             int target = -1;
             if ("one".equals(d.target) || "raid".equals(d.kind) || "opportunity".equals(d.kind)) target = rng.nextInt(players.size());
-            pending = new Pending(e, target, d.strength(players.size()));
+            pending = new Pending(e, target, d.strength(players.size(), realm.size()));
             for (Player p : players) pending.ready.put(p.seat, p.away);
             log("Event: " + d.name + (target >= 0 ? " (" + players.get(target).name + ")" : "") + " — " + d.text);
             if (!needsResponses()) {
@@ -436,6 +484,7 @@ public final class Game {
                     case "grow" -> grow(p);
                     case "recruit" -> recruit(p);
                     case "contribute" -> contribute(p, a);
+                    case "colonize" -> colonize(p, a);
                     case "cleanse" -> cleanse(p, a);
                     default -> throw new GameException("Unknown action: " + type);
                 }
@@ -464,17 +513,51 @@ public final class Game {
                 + (toIdle ? "rest (idle)" : "the " + tb.def.name) + ".");
     }
 
+    /** Base cost, +{@code buildingEscalation} production per level the building already has, minus discounts. */
     public EnumMap<Res, Integer> buildCost(Player p, BuildingDef b) {
         Mods m = mods(p);
+        Building existing = p.ofType(b.id);
+        int levels = existing == null ? 0 : existing.level();
         EnumMap<Res, Integer> cost = Res.empty();
-        b.cost.forEach((r, v) -> cost.put(r, Math.max(0, v - (v > 0 ? m.buildDiscount.get(r) : 0))));
+        b.cost.forEach((r, v) -> {
+            int c = v + (r == Res.PRODUCTION ? levels * content.rules.buildingEscalation : 0);
+            cost.put(r, Math.max(0, c - (c > 0 ? m.buildDiscount.get(r) : 0)));
+        });
         return cost;
+    }
+
+    /** Worker slots a player may have in a building type: home slots plus what the realm's territories add. */
+    public int capacity(Player p, String type) {
+        Integer home = content.rules.homeSlots.get(type);
+        if (home == null) return Integer.MAX_VALUE;
+        int cap = home;
+        for (Territory t : realm) cap += t.def.slots.getOrDefault(type, 0);
+        return cap;
+    }
+
+    /** Food for 3 (base) more for every {@code growthStep} people beyond the first. */
+    public EnumMap<Res, Integer> growthCost(Player p) {
+        EnumMap<Res, Integer> c = new EnumMap<>(content.rules.growthCost);
+        int extra = Math.max(0, p.population() - 1) / Math.max(1, content.rules.growthStep);
+        c.merge(Res.FOOD, extra, Integer::sum);
+        return c;
+    }
+
+    public int colonizationValue() {
+        int v = 0;
+        for (Territory t : realm) v += t.def.colonization;
+        return v;
     }
 
     private void build(Player p, Map<String, Object> a) {
         String id = Y.s(a, "building", "");
         BuildingDef b = content.buildings.get(id);
         if (b == null || !b.buildable) throw new GameException("You can't build that.");
+        Building existing = p.ofType(b.id);
+        int cap = capacity(p, b.id);
+        if ((existing == null ? 0 : existing.slots) >= cap) {
+            throw new GameException("Your land has room for only " + cap + " " + b.name.toLowerCase() + " worker slots. Settle more territory.");
+        }
         pay(p, buildCost(p, b));
         Building built = addBuilding(p, b);
         log(built.level() == 1 ? p.name + " builds a " + b.name + "."
@@ -535,7 +618,7 @@ public final class Game {
     }
 
     private void grow(Player p) {
-        pay(p, content.rules.growthCost);
+        pay(p, growthCost(p));
         addPopulation(p, 1);
         log(p.name + " grows by 1 Population.");
     }
@@ -567,7 +650,12 @@ public final class Game {
         if (w.paid.equals(cost)) {
             w.done = true;
             builtWonders.add(w.def);
-            log("The great wonder " + w.def.name + " is complete! " + w.def.text);
+            Territory where = null;
+            int tid = Y.i(a, "territory", -1);
+            for (Territory t : realm) if (t.id == tid) where = t;
+            if (where == null) where = realm.stream().min((x, y) -> x.wonders.size() - y.wonders.size()).orElseThrow();
+            where.wonders.add(w.def);
+            log("The great wonder " + w.def.name + " is complete, in the " + where.def.name + "! " + w.def.text);
             applyImmediate(w.def.effects, players, p, 1.0, false);
         }
     }
@@ -580,6 +668,97 @@ public final class Game {
         persistentEvents.remove(e);
         pastEvents.add(e);
         log(p.name + " lifts " + e.def.name + ".");
+    }
+
+    private void colonize(Player p, Map<String, Object> a) {
+        int id = Y.i(a, "land", -1);
+        Frontier f = frontier.stream().filter(x -> x.land.id == id).findFirst()
+                .orElseThrow(() -> new GameException("No such land on the frontier."));
+        EnumMap<Res, Integer> give = Res.parse(a.get("resources"));
+        int people = Y.i(a, "population", 0), troops = Y.i(a, "army", 0);
+        if (people < 0 || troops < 0) throw new GameException("Amounts can't be negative.");
+        for (Res r : Res.values()) {
+            if (give.get(r) < 0) throw new GameException("Amounts can't be negative.");
+            give.put(r, Math.min(give.get(r), f.cost.get(r) - f.paid.get(r)));
+        }
+        people = Math.min(people, f.population - f.populationPaid);
+        troops = Math.min(troops, f.army - f.armyPaid);
+        if (Res.isZero(give) && people == 0 && troops == 0) throw new GameException("Give something the land still needs.");
+        if (people > p.population()) throw new GameException("You don't have that many people.");
+        if (troops > p.army - p.committed) throw new GameException("You don't have that many free troops.");
+        pay(p, give);
+        give.forEach((r, v) -> f.paid.merge(r, v, Integer::sum));
+        f.bySeat.computeIfAbsent(p.seat, x -> Res.empty()).putAll(merge(f.bySeat.get(p.seat), give));
+        f.populationPaid += people;
+        f.armyPaid += troops;
+        p.army -= troops;
+        String what = Res.describe(give) + (people > 0 ? ", " + people + " settlers" : "") + (troops > 0 ? ", " + troops + " troops" : "");
+        log(p.name + " sends " + what + " to settle the " + f.land.def.name + ".");
+        if (people > 0) losePopulation(p, people);
+        if (f.complete()) {
+            frontier.remove(f);
+            realm.add(f.land);
+            log("The " + f.land.def.name + " joins the realm! " + f.land.def.text);
+        }
+    }
+
+    private static EnumMap<Res, Integer> merge(EnumMap<Res, Integer> a, EnumMap<Res, Integer> b) {
+        EnumMap<Res, Integer> m = Res.empty();
+        if (a != null) a.forEach((r, v) -> m.merge(r, v, Integer::sum));
+        b.forEach((r, v) -> m.merge(r, v, Integer::sum));
+        return m;
+    }
+
+    /** Puts a land on the frontier with its colonizing cost, fixed now. */
+    private void discover(TerritoryDef def) {
+        int n = players.size();
+        EnumMap<Res, Integer> cost = Res.empty();
+        int pop = 0, army = 0;
+        if (def.special) {
+            def.costPerPlayer.forEach((r, v) -> cost.put(r, v * n));
+            pop = def.populationPerPlayer * n;
+            army = def.armyPerPlayer * n;
+        } else {
+            Content.Rules r = content.rules;
+            int extra = Math.max(0, realm.size() - r.colonizeFreeTerritories);
+            int discount = colonizationValue();
+            for (Res x : Res.values()) cost.put(x, r.colonizeCostPerPlayer.get(x) + extra * r.colonizeEscalationPerPlayer.get(x));
+            // colonization value (coasts) lowers the per-player cost: production first, then food
+            for (Res x : List.of(Res.PRODUCTION, Res.FOOD)) {
+                int cut = Math.min(discount, cost.get(x));
+                cost.put(x, cost.get(x) - cut);
+                discount -= cut;
+            }
+            cost.replaceAll((x, v) -> v * n);
+        }
+        Territory land = def.special ? new Territory(nextId++, def) : null;
+        if (land == null) {
+            for (Territory t : worldDeck) if (t.def == def) land = t;
+            if (land == null) return;
+            worldDeck.remove(land);
+        }
+        Frontier f = new Frontier(land, cost, pop, army);
+        frontier.add(f);
+        log("Discovered: " + def.name + " (" + def.text + "). Settling it costs " + Res.describe(cost)
+                + (pop > 0 ? ", " + pop + " settlers" : "") + (army > 0 ? ", " + army + " troops" : "") + ".");
+    }
+
+    private void loseTerritory(Territory t) {
+        realm.remove(t);
+        for (WonderDef w : t.wonders) builtWonders.remove(w);
+        log("The " + t.def.name + " is lost" + (t.wonders.isEmpty() ? "!" : ", and with it " + String.join(", ", t.wonders.stream().map(w -> w.name).toList()) + "!"));
+        for (Player p : players) {
+            for (Building b : List.copyOf(p.buildings)) {
+                int cap = capacity(p, b.def.id);
+                if (b.slots <= cap) continue;
+                b.slots = cap;
+                int out = Math.max(0, b.workers - b.slots);
+                b.workers -= out;
+                p.idle += out;
+                if (b.slots <= 0) p.buildings.remove(b);
+                log(p.name + "'s " + b.def.name + " shrinks to " + Math.max(0, cap) + " worker slots" + (out > 0 ? "; " + out + " workers are idle." : "."));
+            }
+        }
     }
 
     private void give(Player p, Map<String, Object> a) {
@@ -797,7 +976,7 @@ public final class Game {
     private void invasion(Pending pe, double factor) {
         CardDef d = pe.event.def;
         int sent = pe.troops.values().stream().mapToInt(Integer::intValue).sum();
-        int total = sent + pe.defenseBonus;
+        int total = sent + pe.defenseBonus + civMods().invasionDefense;
         int s = pe.strength;
         pe.troops.forEach((seat, n) -> players.get(seat).committed += n);
         if (total >= s) {
@@ -811,6 +990,7 @@ public final class Game {
         int times = (int) Math.floor(shortfall * factor);
         log(d.name + " (" + s + ") breaks through the defenders (" + total + "): every sent troop is lost, " + times + " times its losses.");
         for (int i = 0; i < times; i++) applyImmediate(d.perShortfall, players, null, 1.0, true);
+        if (!realm.isEmpty()) loseTerritory(realm.get(rng.nextInt(realm.size())));
         if (times > 0) {
             stability -= 2;
             log("The invasion shakes the civilization. Stability -2 (now " + stability + ").");
@@ -906,6 +1086,14 @@ public final class Game {
                     if (actor != null && phase == Phase.TURNS && actor.seat == currentPlayer) actionsLeft += Y.toInt(v);
                 }
                 case "addCrisis" -> addCrisis(String.valueOf(v));
+                case "discover" -> {
+                    if (v instanceof Number num) {
+                        for (int i = 0; i < num.intValue() && !worldDeck.isEmpty(); i++) discover(worldDeck.get(0).def);
+                    } else {
+                        TerritoryDef t = content.territories.get(String.valueOf(v));
+                        if (t != null) discover(t);
+                    }
+                }
                 case "destroyBuilding" -> {
                     int n = (int) Math.floor(Y.toInt(v) * factor);
                     for (Player p : targets) {
@@ -927,7 +1115,7 @@ public final class Game {
                 }
                 case "freeBuilding" -> {
                     BuildingDef b = content.buildings.get(String.valueOf(v));
-                    for (Player p : targets) addBuilding(p, b);
+                    for (Player p : targets) addBuilding(p, b); // only where the land has room
                     log(names(targets) + " get a free " + b.name + " level.");
                 }
                 default -> { /* lasting and response effects are handled elsewhere */ }
@@ -957,11 +1145,14 @@ public final class Game {
     /** Builds a building, or adds a level (more worker slots) to the one of that type the player already has. */
     private Building addBuilding(Player p, BuildingDef def) {
         Building b = p.ofType(def.id);
+        int room = capacity(p, def.id) - (b == null ? 0 : b.slots);
+        if (room <= 0) return b;
         if (b != null) {
-            b.slots += def.slots;
+            b.slots += Math.min(def.slots, room);
             return b;
         }
         b = new Building(nextId++, def);
+        b.slots = Math.min(def.slots, room);
         p.buildings.add(b);
         return b;
     }
@@ -1000,6 +1191,7 @@ public final class Game {
         for (CardDef w : p.minorWonders) m.add(w.effects);
         for (WonderDef w : builtWonders) m.add(w.effects);
         for (CardInst e : persistentEvents) m.add(e.def.ongoing);
+        for (Territory t : realm) m.add(t.def.effects);
         return m;
     }
 
@@ -1011,6 +1203,7 @@ public final class Game {
             for (CardDef w : p.minorWonders) m.add(w.effects);
         }
         for (WonderDef w : builtWonders) m.add(w.effects);
+        for (Territory t : realm) m.add(t.def.effects);
         return m;
     }
 
@@ -1029,6 +1222,10 @@ public final class Game {
         if (result != null) return true;
         if (stability <= 0) {
             end("defeat", "Stability collapsed.");
+            return true;
+        }
+        if (realm.isEmpty()) {
+            end("defeat", "The last of the realm's land was lost.");
             return true;
         }
         if (players.stream().allMatch(p -> p.population() == 0)) {

@@ -76,6 +76,31 @@ public final class View {
         v.put("greatWonders", wonders);
         v.put("builtWonders", g.builtWonders.stream().map(View::wonder).toList());
 
+        List<Object> realm = new ArrayList<>();
+        for (Game.Territory t : g.realm) {
+            Map<String, Object> m = territory(t);
+            m.put("wonders", t.wonders.stream().map(w -> w.name).toList());
+            realm.add(m);
+        }
+        v.put("realm", realm);
+        List<Object> frontier = new ArrayList<>();
+        for (Game.Frontier f : g.frontier) {
+            Map<String, Object> m = territory(f.land);
+            m.put("cost", res(f.cost));
+            m.put("paid", res(f.paid));
+            m.put("population", f.population);
+            m.put("populationPaid", f.populationPaid);
+            m.put("army", f.army);
+            m.put("armyPaid", f.armyPaid);
+            Map<String, Object> by = new LinkedHashMap<>();
+            f.bySeat.forEach((s2, r) -> by.put(g.players.get(s2).name, res(r)));
+            m.put("bySeat", by);
+            frontier.add(m);
+        }
+        v.put("frontier", frontier);
+        v.put("worldDeck", g.worldDeck.size());
+        v.put("colonizationValue", g.colonizationValue());
+
         Mods civ = g.civMods();
         v.put("sharedPool", civ.sharedPool ? res(g.pool) : null);
 
@@ -125,6 +150,9 @@ public final class View {
                 bm.put("name", b.name);
                 bm.put("cost", res(g.buildCost(me, b)));
                 bm.put("owned", me.ofType(b.id) != null);
+                int cap = g.capacity(me, b.id);
+                bm.put("capacity", cap == Integer.MAX_VALUE ? null : cap);
+                bm.put("slots", me.ofType(b.id) == null ? 0 : me.ofType(b.id).slots);
                 bm.put("slotsAdded", b.slots);
                 bm.put("perWorker", res(b.perWorker));
                 bm.put("text", b.text);
@@ -133,7 +161,7 @@ public final class View {
             v.put("buildable", build);
         }
         Map<String, Object> rules = new LinkedHashMap<>();
-        rules.put("growthCost", res(g.content.rules.growthCost));
+        rules.put("growthCost", res(seat >= 0 && seat < g.players.size() ? g.growthCost(g.players.get(seat)) : g.content.rules.growthCost));
         rules.put("recruitCost", res(g.content.rules.recruitCost));
         v.put("rules", rules);
 
@@ -199,6 +227,17 @@ public final class View {
     private static Map<String, Object> countByName(List<CardInst> cards) {
         Map<String, Object> m = new TreeMap<>();
         for (CardInst c : cards) m.merge(c.def.name, 1, (a, b) -> (Integer) a + (Integer) b);
+        return m;
+    }
+
+    static Map<String, Object> territory(Game.Territory t) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", t.id);
+        m.put("key", t.def.id);
+        m.put("name", t.def.name);
+        m.put("text", t.def.text);
+        m.put("slots", t.def.slots);
+        m.put("colonization", t.def.colonization);
         return m;
     }
 

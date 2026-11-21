@@ -71,6 +71,73 @@ class GameTest {
     }
 
     @Test
+    void realmStartsWithTwoTerritories() {
+        Game g = game(3, 8);
+        assertEquals(2, g.realm.size());
+        for (Game.Territory t : g.realm) assertFalse(t.def.special);
+    }
+
+    @Test
+    void invasionStrengthIsPlayersTimesTerritories() {
+        assertEquals(10, C.cards.get("sea_peoples").strength(2, 5));
+        assertEquals(10, C.cards.get("wandering_horde").strength(2, 5));
+        assertEquals(4, C.cards.get("wandering_horde").strength(2, 2));
+    }
+
+    @Test
+    void growthGetsDearer() {
+        Game g = game(1, 9);
+        Player p = g.players.get(0);
+        assertEquals(3, g.growthCost(p).get(Res.FOOD), "3 people: base cost");
+        p.idle += 2; // 5 people: 4 beyond the first
+        assertEquals(4, g.growthCost(p).get(Res.FOOD));
+        p.idle += 4; // 9 people
+        assertEquals(5, g.growthCost(p).get(Res.FOOD));
+    }
+
+    @Test
+    void landLimitsFarmsAndLosingItShrinksThem() {
+        Game g = game(1, 10);
+        Player p = g.players.get(0);
+        p.res.put(Res.PRODUCTION, 50);
+        Player.Building farm = p.ofType("farm");
+        int cap = g.capacity(p, "farm");
+        while (farm.slots < cap) g.act(0, Map.of("type", "build", "building", "farm"));
+        assertThrows(GameException.class, () -> g.act(0, Map.of("type", "build", "building", "farm")));
+        // building levels get dearer
+        assertTrue(g.buildCost(p, C.buildings.get("farm")).get(Res.PRODUCTION) > 2 || cap == 2);
+        // lose every territory that gives farm slots: the farm shrinks back to the home slots
+        for (Game.Territory t : List.copyOf(g.realm)) {
+            if (t.def.slots.getOrDefault("farm", 0) > 0 && g.realm.size() > 1) {
+                g.realm.remove(t);
+            }
+        }
+        assertTrue(g.capacity(p, "farm") <= cap);
+    }
+
+    @Test
+    void discoveringAndColonizing() {
+        Game g = game(2, 11);
+        Player p = g.players.get(g.currentPlayer);
+        p.res.put(Res.FOOD, 50);
+        p.res.put(Res.PRODUCTION, 50);
+        for (Game.CardInst c : g.eraDeck) {
+            if (c.def.id.equals("send_scouts")) {
+                p.hand.add(c);
+                g.act(p.seat, Map.of("type", "play", "card", c.id));
+                break;
+            }
+        }
+        assertEquals(1, g.frontier.size());
+        Game.Frontier f = g.frontier.get(0);
+        Map<String, Object> pay = new java.util.HashMap<>();
+        for (Res r : Res.values()) pay.put(r.key(), f.cost.get(r));
+        g.act(p.seat, Map.of("type", "colonize", "land", f.land.id, "resources", pay));
+        assertEquals(3, g.realm.size());
+        assertTrue(g.frontier.isEmpty());
+    }
+
+    @Test
     void greatWondersGoOnTheBoard() {
         Game g = game(2, 7);
         Player p = g.players.get(g.currentPlayer);

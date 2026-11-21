@@ -11,7 +11,16 @@ rules:
   handLimit: 7
   startWorkers: {farm: 2, mine: 1}        # start with a Farm and a Mine; 3 Population: 2 farmers, 1 miner
   startResources: {food: 3, production: 2}
-  growthCost: {food: 3}                   # action "grow": +1 Population
+  growthCost: {food: 3}                   # action "grow": +1 Population ...
+  growthStep: 4                           # ... +1 food for every 4 people beyond the first
+  buildingEscalation: 1                   # each level a building already has adds 1 production to the next
+  homeSlots: {farm: 2, mine: 2}           # farm and mine worker slots each player has before any territory
+  startTerritories: 2                     # territories drawn from the world deck at the start
+  colonize:                               # settling a discovered land (paid by anyone, together)
+    costPerPlayer: {food: 2, production: 2}
+    extraPerTerritoryPerPlayer: {production: 1}   # for each territory beyond the first 2
+    territoriesBeforeExtra: 2
+    # each point of colonization value (coasts, oceans) takes 1 per player off: production first, then food
   recruitCost: {production: 2}            # action "recruit": +1 troop
   foodUpkeepPerPop: 1
   startStability: 10
@@ -54,39 +63,92 @@ buildings:
 # Great wonders are the measure of a game: the final score is the sum of their victory points.
 # Each is also a card (same id) listed in an era below: when a player picks or draws it, it goes on the board.
 # Bonuses and points are placeholders, to be reworked.
+# Cost is per player, sized so a wonder takes the whole team about 3.5 rounds of its output (a player makes roughly
+# 3-4 production and some culture per round in the Prehistoric era, a little more in the Ancient era).
+# The world deck: the shared realm's land. "slots" are extra worker slots for every player's buildings of that type;
+# lose the territory and the slots (and any great wonder standing there) are lost. Effects apply to every player.
+territories:
+  plains:
+    name: Plains
+    copies: 3
+    slots: {farm: 2}
+    text: +2 farm worker slots.
+  mountains:
+    name: Mountains
+    copies: 3
+    slots: {mine: 2}
+    text: +2 mine worker slots.
+  steppe:
+    name: Steppe
+    copies: 2
+    slots: {farm: 1}
+    effects: [{raidDefense: 2}, {invasionDefense: 2}]
+    text: +1 farm worker slot. +2 military strength (against raids and invasions).
+  jungle:
+    name: Jungle
+    copies: 2
+    slots: {farm: 1}
+    effects: [{income: {research: 1}}]
+    text: +1 farm worker slot. +1 research per turn.
+  coast:
+    name: Coast
+    copies: 3
+    slots: {farm: 1}
+    colonization: 1
+    text: +1 farm worker slot. +1 colonization value.
+  forest:
+    name: Forest
+    copies: 3
+    slots: {mine: 1}
+    effects: [{income: {production: 1}}]
+    text: +1 mine worker slot (lumber). +1 production per turn.
+  ocean:
+    name: Ocean
+    copies: 2
+    colonization: 1
+    effects: [{income: {food: 1}}]
+    text: +1 food per turn (fishing). +1 colonization value.
+  rich_land:
+    name: Rich Land
+    special: true                       # not in the world deck: found by the Rich Land event
+    slots: {farm: 2, mine: 2}
+    effects: [{income: {culture: 1}}]
+    costPerPlayer: {population: 2, army: 2}
+    text: +2 farm and +2 mine worker slots, +1 culture per turn.
+
 greatWonders:
   stonehenge:
     name: Stonehenge
     era: prehistoric
-    costPerPlayer: {production: 5, culture: 2}
+    costPerPlayer: {production: 9, culture: 3}
     effects: [{actionsPerTurn: 1}]
     victoryPoints: 2
     text: Every player gets +1 action per turn.
   pyramids:
     name: The Pyramids
     era: ancient
-    costPerPlayer: {production: 5, culture: 3}
+    costPerPlayer: {production: 11, culture: 4}
     effects: [{stability: 2}, {income: {culture: 2}}]
     victoryPoints: 2
     text: +2 Stability, every player +2 culture per turn, +2 victory points.
   hanging_gardens:
     name: The Hanging Gardens
     era: ancient
-    costPerPlayer: {production: 4, food: 3}
+    costPerPlayer: {production: 8, food: 8}
     effects: [{perWorker: {building: farm, food: 1}}, {income: {culture: 1}}]
     victoryPoints: 2
     text: Every farmer +1 food, every player +1 culture per turn.
   great_library:
     name: The Great Library
     era: ancient
-    costPerPlayer: {production: 3, culture: 2, research: 2}
+    costPerPlayer: {production: 7, culture: 4, research: 3}
     effects: [{income: {research: 4}}, {handLimit: 1}]
     victoryPoints: 2
     text: Every player +4 research per turn and +1 max hand size.
   colossus:
     name: The Colossus
     era: ancient
-    costPerPlayer: {production: 5, influence: 2}
+    costPerPlayer: {production: 11, influence: 2}
     effects: [{perWorker: {building: mine, production: 1}}]
     victoryPoints: 2
     text: Every miner +1 production.
@@ -117,6 +179,7 @@ eras:
       shell_trading: 2
       gather_the_tribe: 2
       long_day: 1
+      send_scouts: 2
       # responses
       rally_the_hunters: 2
       hide_in_the_caves: 1
@@ -136,6 +199,8 @@ eras:
       bountiful_season: 2
       wandering_sage: 1
       strangers_at_the_fire: 1
+      scouts_return: 2
+      rich_land_found: 1
       dawn_of_agriculture: 1
   - id: ancient
     name: Ancient
@@ -163,6 +228,7 @@ eras:
       festival: 1
       long_day: 1
       foraging: 1
+      send_scouts: 1
       city_walls: 2
       bronze_levy: 1
       quarantine: 1
@@ -183,6 +249,9 @@ eras:
       rumbling_mountain: 1
       comet_sighted: 1
       failing_rains: 1
+      explorers: 2
+      great_expedition: 1
+      rich_land_found: 1
       rise_of_empires: 1
 
 # The starting event deck: 2 per player, drawn from these (number = copies in the pool).
@@ -196,6 +265,7 @@ startingEvents:
   rival_tribe: 1
   small_fire: 1
   wandering_sage: 1
+  scouts_return: 1
 
 # Crisis cards: kept apart, added to the future deck only by other events or when a player's Population hits 0.
 crisisCards: [black_plague, supervolcano, meteor_impact, climate_change]
@@ -402,6 +472,13 @@ cards:
     effects: [{stability: 2}, {gain: {culture: 1}}]
     text: Pay 2 food for +2 Stability and +1 culture.
 
+  send_scouts:
+    name: Send Scouts
+    type: action
+    cost: {food: 1}
+    effects: [{discover: 1}]
+    text: Pay 1 food. Draw a land from the world deck onto the frontier.
+
   # ------------------------------------------------------------------ responses (played when an event resolves)
   rally_the_hunters:
     name: Rally the Hunters
@@ -493,9 +570,9 @@ cards:
     type: event
     category: invasion
     kind: invasion
-    strength: {base: 1, perPlayer: 2}
+    strength: {perPlayerPerTerritory: 1}
     perShortfall: [{lose: {food: 1}}]
-    text: Invasion, strength 1 + 2 per player. Each point short costs every player 1 food.
+    text: Invasion, strength = players × territories. If it breaks through, a territory is lost and each point short costs every player 1 food.
   harsh_winter:
     name: Harsh Winter
     type: event
@@ -607,9 +684,9 @@ cards:
     type: event
     category: invasion
     kind: invasion
-    strength: {base: 2, perPlayer: 3}
+    strength: {perPlayerPerTerritory: 1}
     perShortfall: [{lose: {food: 1, production: 1}}]
-    text: Invasion, strength 2 + 3 per player. Each point short costs every player 1 food and 1 production.
+    text: Invasion, strength = players × territories. If it breaks through, a territory is lost and each point short costs every player 1 food and 1 production.
   drought:
     name: Drought
     type: event
@@ -699,6 +776,31 @@ cards:
     target: each
     effects: [{gain: {culture: 2}}]
     text: Every player gains 2 culture. The Ancient era ends at the end of this round.
+
+  scouts_return:
+    name: Scouts Return
+    type: event
+    category: discovery
+    effects: [{discover: 1}]
+    text: A new land is found and put on the frontier.
+  explorers:
+    name: Explorers
+    type: event
+    category: discovery
+    effects: [{discover: 1}]
+    text: A new land is found and put on the frontier.
+  great_expedition:
+    name: Great Expedition
+    type: event
+    category: discovery
+    effects: [{discover: 2}]
+    text: Two new lands are found and put on the frontier.
+  rich_land_found:
+    name: Rich Land
+    type: event
+    category: discovery
+    effects: [{discover: rich_land}]
+    text: "A rich land is found: settling it costs 2 settlers and 2 troops per player."
 
   # ------------------------------------------------------------------ crisis cards
   black_plague:
