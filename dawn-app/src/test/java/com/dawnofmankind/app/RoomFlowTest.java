@@ -121,6 +121,29 @@ class RoomFlowTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void aiPlayerTakesItsTurns() throws Exception {
+        Map<String, Object> a = post("/dawn/api/rooms", Map.of("name", "Solo"));
+        Client c = new Client((String) a.get("code"), (String) a.get("token"));
+        c.send(Map.of("type", "addAi"));
+        c.await(m -> m.get("room") != null && ((java.util.List<?>) ((Map<String, Object>) m.get("room")).get("players")).size() == 2);
+        c.send(Map.of("type", "start"));
+        Map<String, Object> st = c.await(m -> m.get("game") != null);
+        // whoever starts, play on until the round number moves: the AI has to have taken its turn
+        long end = System.currentTimeMillis() + 20000;
+        int round = (Integer) ((Map<String, Object>) st.get("game")).get("round");
+        while (System.currentTimeMillis() < end) {
+            Map<String, Object> g = (Map<String, Object>) st.get("game");
+            if ((Integer) g.get("round") > round) return;
+            if ("turns".equals(g.get("phase")) && (Integer) g.get("currentPlayer") == 0) c.send(Map.of("type", "endTurn"));
+            Map<String, Object> pending = (Map<String, Object>) g.get("pending");
+            if (pending != null && !Boolean.TRUE.equals(((Map<String, Object>) pending.get("ready")).get("0"))) c.send(Map.of("type", "ready"));
+            st = c.await(m -> m.get("game") != null);
+        }
+        throw new AssertionError("the round never ended");
+    }
+
+    @Test
     void badTokenIsTurnedAway() throws Exception {
         Map<String, Object> a = post("/dawn/api/rooms", Map.of("name", "Bo"));
         Client c = new Client((String) a.get("code"), "nope");
