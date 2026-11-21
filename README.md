@@ -50,12 +50,13 @@ buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (St
 +1 research per turn, Coast: +1 colonization value, …). Farms and mines can only grow as far as the land allows
 (each player also has 2 home slots of each). Lands are settled by paying
 their whole cost, bit by bit: resources (per player 2 food and 2 production, +1 production for each territory beyond
-the first two, minus the realm's colonization value), troops equal to the land's **enemy strength** (troops sent are
-spent) and, for some lands, settlers. Two lands lie **face up** from the start and stay until settled; they are paid
-toward with **Settle** cards (each card lets its player pay what they can now), and a settled one is replaced from the
-world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, Send Scouts, and the special Rich
-Land, Fortified Land and Fertile Delta, which cost more) take anyone's help (1 action) but vanish after 2 rounds, half
-of what was sent coming back. Hostile Tribes and A Warlord Rises raise the enemy strength of lands waiting to be
+the first two, minus the realm's colonization value), troops equal to the land's **enemy strength** (half of the troops
+sent are lost) and, for some lands, settlers. Two lands lie **face up** from the start (Send Scouts turns up more); they stay until settled or
+removed by an event (Rivals Claim the Land), and are paid toward with **Settle** cards: each card lets its player pay
+what they can now, and payments stay on the land. A settled one is replaced from the world deck. Lands **found by events** (Scouts Return, Explorers, Great Expedition, and the special Rich Land,
+Fortified Land and Fertile Delta, which cost more) must be settled at once: everyone can pay toward them, free, in
+that event's response window; if the cost isn't met when the event resolves, the land is lost and so is what was
+sent. Hostile Tribes and A Warlord Rises raise the enemy strength of lands waiting to be
 settled. **Fortify the Heartland** makes a territory a **core**: a broken invasion that would take it only removes its
 core status. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
 culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population eats 1 food per round.
@@ -103,11 +104,13 @@ bonuses and points in content.yaml are placeholders.
 - New Population goes straight into a free worker slot, otherwise it is idle.
 - Raids and one-player events strike a random player.
 - Great wonder bonuses apply to every player; Stonehenge's +1 action is for everyone.
-- A repelled raid of strength S costs S/3 troops; a lost one costs half the defenders and 1 Stability.
-  A repelled invasion costs S/2 troops split between senders; a lost one costs every sent troop and 2 Stability.
+- Fights: the troops that fight (up to the enemy's strength) must reach its strength, with response cards and
+  defense bonuses adding to it; half of the troops spent are lost, win or lose. A lost raid also costs 1 Stability,
+  a broken invasion 2 Stability and a territory.
 - Curses (Bad Omen, Wrath of the Gods) also cost 1 Stability per round until lifted.
 - Events left in the event decks carry over into the next era; an old era's trigger event is retired.
 - Happiness is not in the game yet.
 - Territory bonuses go to every player. Forest and Ocean bonuses are placeholders (you named those lands without
   bonuses). Steppe's +2 military strength counts for every raid defense and for the united army in invasions.
-- Face-up lands stay across eras; enemy strength starts at 0 and only events raise it. Troops sent to a land are spent.
+- Face-up lands stay across eras; enemy strength starts at 0 and only events raise it. A found land that isn't
+  settled in time is discarded.

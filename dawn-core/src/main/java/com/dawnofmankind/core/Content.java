@@ -21,7 +21,7 @@ public final class Content {
     /** Rule numbers from the {@code rules:} block. */
     public static final class Rules {
         public int actionsPerTurn, handLimit, foodUpkeepPerPop, startStability, startHealth, queueExtra,
-                startingEventsPerPlayer, raidCasualtyDivisor, invasionCasualtyDivisor, eraTriggerBottomShare;
+                startingEventsPerPlayer, eraTriggerBottomShare;
         public EnumMap<Res, Integer> startResources, growthCost, recruitCost;
         public Map<String, Integer> startWorkers = new LinkedHashMap<>();
         public Map<Integer, Integer> removedPerRound = new LinkedHashMap<>();
@@ -32,7 +32,7 @@ public final class Content {
         /** Extra production for each level a building already has. */
         public int buildingEscalation;
         public EnumMap<Res, Integer> colonizeCostPerPlayer, colonizeEscalationPerPlayer;
-        public int colonizeFreeTerritories, faceUpLands, eventLandRounds;
+        public int colonizeFreeTerritories, faceUpLands;
 
         public int removedPerRound(int players) {
             return removedPerRound.getOrDefault(players, players <= 2 ? 1 : players <= 4 ? 2 : 3);
@@ -177,8 +177,6 @@ public final class Content {
         rules.startHealth = Y.i(m, "startHealth", 0);
         rules.queueExtra = Y.i(m, "queueExtra", 2);
         rules.startingEventsPerPlayer = Y.i(m, "startingEventsPerPlayer", 2);
-        rules.raidCasualtyDivisor = Y.i(m, "raidCasualtyDivisor", 3);
-        rules.invasionCasualtyDivisor = Y.i(m, "invasionCasualtyDivisor", 2);
         rules.eraTriggerBottomShare = Y.i(m, "eraTriggerBottomPercent", 40);
         rules.startResources = Res.parse(m.get("startResources"));
         rules.growthCost = Res.parse(m.get("growthCost"));
@@ -190,7 +188,6 @@ public final class Content {
         Y.map(m.get("homeSlots")).forEach((k, v) -> rules.homeSlots.put(k, Y.toInt(v)));
         rules.startTerritories = Y.i(m, "startTerritories", 2);
         rules.faceUpLands = Y.i(m, "faceUpLands", 2);
-        rules.eventLandRounds = Y.i(m, "eventLandRounds", 2);
         rules.growthStep = Y.i(m, "growthStep", 4);
         rules.buildingEscalation = Y.i(m, "buildingEscalation", 1);
         Map<String, Object> col = Y.map(m.get("colonize"));

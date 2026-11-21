@@ -209,12 +209,13 @@ function renderRealm() {
     const inputs = `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" max="${f.left[k]}" value="0" data-keep="f-${f.id}-${k}" data-fres="${k}"></label>`).join('')}
       ${troopsLeft > 0 ? `<label style="margin:0">Troops <input type="number" min="0" max="${troopsLeft}" value="0" data-keep="f-${f.id}-army" data-farmy></label>` : ''}
       ${settlersLeft > 0 ? `<label style="margin:0">Settlers <input type="number" min="0" max="${settlersLeft}" value="0" data-keep="f-${f.id}-pop" data-fpop></label>` : ''}</div>`;
+    const canSendNow = f.duringEvent ? s.phase === 'events' && s.pending && !s.pending.ready[s.you] : canAct();
     const button = f.fromEvent
-      ? `<button ${canAct() ? '' : 'disabled'} data-colonize="${f.id}">Send (1 action)</button>`
+      ? `<button ${canSendNow ? '' : 'disabled'} data-colonize="${f.id}">${f.duringEvent ? 'Send (free)' : 'Send (1 action)'}</button>`
       : `<button ${canAct() && settleCard ? '' : 'disabled'} data-settle="${f.id}" title="${settleCard ? '' : 'You need a Settle card'}">Play Settle (1 action)</button>${settleCard ? '' : ' <span class="small muted">needs a Settle card</span>'}`;
     const by = Object.entries(f.bySeat).map(([n, r]) => `<div class="small muted">${esc(n)}: ${resList(r)}</div>`).join('');
     return `<div class="cardx frontier ${f.fromEvent ? 'eventland' : ''}" data-f="${f.id}">
-      <div class="type">${f.fromEvent ? `Found by an event · gone after round ${f.lastRound}` : 'Face-up land'}${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
+      <div class="type">${f.fromEvent ? (f.duringEvent ? 'Found by this event · settle it now or lose it' : 'Scouted · settle it this turn or lose it') : 'Face-up land'}${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
       <div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
       <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.troops ? ` · troops ${f.troopsPaid}/${f.troops}` : ''}${f.settlers ? ` · settlers ${f.settlersPaid}/${f.settlers}` : ''}</div>
       ${by}${inputs}<div class="row">${button}</div></div>`;
@@ -223,7 +224,7 @@ function renderRealm() {
     <p class="muted small">Shared land. Each territory gives every player room for buildings and its bonus. A broken invasion takes a territory (a core territory only loses its core status); with none left, the game is lost.
     World deck: ${s.worldDeck} lands · colonization value ${s.colonizationValue}.</p>
     <div class="cards">${lands}</div>
-    <h3 style="margin-top:.6rem">Lands to settle</h3><p class="muted small">Pay toward a land until its whole cost is met: resources, troops against its enemy strength (troops sent are spent), settlers. Face-up lands take Settle cards and stay until settled; lands found by events take anyone's help (1 action) but vanish.</p>
+    <h3 style="margin-top:.6rem">Lands to settle</h3><p class="muted small">Pay toward a land until its whole cost is met: resources, troops against its enemy strength (half of the troops sent are lost), settlers. Face-up lands take Settle cards; payments stay on them until they are settled or claimed by others. A land found by an event must be paid for at once, before the event resolves (anyone, free), or it is lost with everything sent.</p>
     <div class="cards">${front || '<p class="muted">None face up.</p>'}</div>`;
 }
 
@@ -288,7 +289,9 @@ function renderEvents() {
       controls = '<span class="muted small">You are done. Waiting for the others…</span>';
     }
     const waiting = Object.entries(p.ready).filter(([, r]) => !r).map(([seat]) => esc(s.players[seat].name));
+    const found = s.frontier.filter(f => f.duringEvent);
     html += cardHtml(p, `${target}<div class="preview">${esc(p.preview)}</div>
+      ${found.length ? `<div class="small" style="color:var(--brass)">Found: ${found.map(f => esc(f.name)).join(', ')}. Pay for it in The realm panel before everyone is done, or it is lost.</div>` : ''}
       ${p.responses.length ? `<div class="small">Responses: ${p.responses.map(esc).join(', ')}</div>` : ''}
       ${p.kind === 'invasion' ? `<div class="small">Troops sent: ${Object.entries(p.troops).map(([seat, n]) => esc(s.players[seat].name) + ' ' + n).join(', ') || 'none yet'}</div>` : ''}
       <div class="actions">${controls}</div><div class="readylist">${waiting.length ? 'Waiting for: ' + waiting.join(', ') : ''}</div>`, 'pending');

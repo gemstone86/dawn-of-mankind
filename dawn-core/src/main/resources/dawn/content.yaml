@@ -17,7 +17,7 @@ rules:
   homeSlots: {farm: 2, mine: 2}           # farm and mine worker slots each player has before any territory
   startTerritories: 2                     # territories drawn from the world deck at the start
   faceUpLands: 2                          # face-up lands, paid off over time with Settle cards; replaced when settled
-  eventLandRounds: 2                      # lands found by events vanish after this many rounds; anyone can pay (1 action)
+  # lands found by events must be settled at once, during the event (anyone, free), or they are discarded
   colonize:                               # the resource cost of an ordinary land
     costPerPlayer: {food: 2, production: 2}
     extraPerTerritoryPerPlayer: {production: 1}   # for each territory beyond the first 2
@@ -32,8 +32,8 @@ rules:
   startingEventsPerPlayer: 2
   eraDeckSize: {base: 20, perPlayer: 12}
   eraTriggerBottomPercent: 30             # era-trigger events are placed in the bottom 30% of the era deck
-  raidCasualtyDivisor: 3                  # a repelled raid of strength S costs S/3 troops
-  invasionCasualtyDivisor: 2              # a repelled invasion of strength S costs S/2 troops, split between senders
+  # fights: troops spent (up to the enemy's strength) must reach that strength (response cards add to it);
+  # half of the troops spent, rounded up, are lost
 
 # A player has one building of each type. Building it again adds a level: 2 more worker slots.
 buildings:
@@ -222,6 +222,7 @@ eras:
       rich_land_found: 1
       fertile_delta_found: 1
       hostile_tribes: 2
+      rivals_claim: 1
       dawn_of_agriculture: 1
   - id: ancient
     name: Ancient
@@ -279,6 +280,7 @@ eras:
       fertile_delta_found: 1
       hostile_tribes: 1
       warlord: 2
+      rivals_claim: 1
       rise_of_empires: 1
 
 # The starting event deck: 2 per player, drawn from these (number = copies in the pool).
@@ -504,12 +506,12 @@ cards:
     type: action
     cost: {food: 1}
     effects: [{discover: 1}]
-    text: Pay 1 food. Find a land (from the world deck) that anyone can help settle for 2 rounds.
+    text: Pay 1 food. Turn another land from the world deck face up; it stays until settled (with Settle cards).
   settle_land:
     name: Settle
     type: action
     effects: [{settle: true}]
-    text: "Pay toward a land: resources, troops against its enemy strength (troops sent are spent) and settlers. Payments add up; the land joins the realm when its whole cost is paid."
+    text: "Pay toward a land: resources, troops against its enemy strength (half of the troops sent are lost) and settlers. Payments add up; the land joins the realm when its whole cost is paid."
   core_territory:
     name: Fortify the Heartland
     type: action
@@ -820,25 +822,31 @@ cards:
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: A land is found; anyone can help settle it for 2 rounds.
+    text: A land is found; settle it at once (anyone can pay, free) or lose it.
   explorers:
     name: Explorers
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: A land is found; anyone can help settle it for 2 rounds.
+    text: A land is found; settle it at once (anyone can pay, free) or lose it.
   great_expedition:
     name: Great Expedition
     type: event
     category: discovery
     effects: [{discover: 2}]
-    text: Two lands are found; anyone can help settle them for 2 rounds.
+    text: Two lands are found; settle them at once (anyone can pay, free) or lose them.
   hostile_tribes:
     name: Hostile Tribes
     type: event
     category: frontier
     effects: [{enemy: {each: 2}}]
     text: Every land waiting to be settled gains 2 enemy strength.
+  rivals_claim:
+    name: Rivals Claim the Land
+    type: event
+    category: frontier
+    effects: [{removeLand: 1}]
+    text: A random face-up land is taken by others, with everything sent toward it. A new one is turned up.
   warlord:
     name: A Warlord Rises
     type: event
@@ -850,19 +858,19 @@ cards:
     type: event
     category: discovery
     effects: [{discover: rich_land}]
-    text: "A Rich Land is found: settling it takes 2 settlers and 2 troops per player, within 2 rounds."
+    text: "A Rich Land is found: settling it takes 2 settlers and 2 troops per player, at once."
   fortified_land_found:
     name: Fortified Land
     type: event
     category: discovery
     effects: [{discover: fortified_land}]
-    text: "A Fortified Land is found: settling it takes 3 production and 4 troops per player, within 2 rounds."
+    text: "A Fortified Land is found: settling it takes 3 production and 4 troops per player, at once."
   fertile_delta_found:
     name: Fertile Delta
     type: event
     category: discovery
     effects: [{discover: fertile_delta}]
-    text: "A Fertile Delta is found: settling it takes 4 food, 2 production and 1 settler per player, within 2 rounds."
+    text: "A Fertile Delta is found: settling it takes 4 food, 2 production and 1 settler per player, at once."
 
   # ------------------------------------------------------------------ crisis cards
   black_plague:

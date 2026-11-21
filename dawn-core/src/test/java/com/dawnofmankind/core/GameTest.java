@@ -131,7 +131,7 @@ class GameTest {
         assertEquals(2, g.realm.size(), "not settled yet");
         assertEquals(1, f.paid.get(Res.FOOD));
         assertEquals(2, f.troopsPaid);
-        assertEquals(0, p.army, "troops sent are spent");
+        assertEquals(1, p.army, "half of the 2 troops sent are lost");
         // a later Settle card finishes it
         p.res.put(Res.FOOD, 50);
         p.res.put(Res.PRODUCTION, 50);
@@ -142,28 +142,22 @@ class GameTest {
         for (Res r : Res.values()) all.put(r.key(), 50);
         g.act(p.seat, Map.of("type", "play", "card", s2.id, "land", f.land.id, "resources", all, "army", 5));
         assertEquals(3, g.realm.size());
-        assertEquals(3, p.army, "only the missing 2 troops were sent");
+        assertEquals(4, p.army, "only the missing 2 troops were sent, 1 lost");
         assertEquals(2, g.frontier.size(), "the settled land is replaced");
     }
 
     @Test
-    void eventLandsAreSettledTogetherAndVanish() {
+    void scoutedLandsStayFaceUp() {
         Game g = game(2, 13);
-        Content.TerritoryDef rich = C.territories.get("rich_land");
-        // a Rich Land found by an event: 2 settlers and 2 troops per player
-        Game.CardInst ev = card(g, "rich_land_found");
         Player p = g.players.get(g.currentPlayer);
-        p.hand.add(card(g, "send_scouts"));
-        g.futureEvents.clear();
-        // discover directly through the event's effect
         p.res.put(Res.FOOD, 10);
-        g.act(p.seat, Map.of("type", "play", "card", p.hand.get(p.hand.size() - 1).id));
-        Game.Frontier found = g.frontier.stream().filter(f -> f.fromEvent).findFirst().orElseThrow();
-        assertNotNull(found);
-        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "colonize", "land", g.frontier.get(0).land.id, "resources", Map.of("food", 1))),
+        Game.CardInst scouts = card(g, "send_scouts");
+        p.hand.add(scouts);
+        g.act(p.seat, Map.of("type", "play", "card", scouts.id));
+        assertEquals(3, g.frontier.size());
+        assertTrue(g.frontier.stream().noneMatch(f -> f.fromEvent), "a scouted land is face up, not an event land");
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "colonize", "land", g.frontier.get(2).land.id, "resources", Map.of("food", 1))),
                 "face-up lands need a Settle card");
-        assertNotNull(rich);
-        assertNotNull(ev);
     }
 
     @Test
@@ -187,10 +181,8 @@ class GameTest {
     void greatWondersGoOnTheBoard() {
         Game g = game(2, 7);
         Player p = g.players.get(g.currentPlayer);
-        Game.CardInst w = null;
-        for (Game.CardInst c : g.eraDeck) if (c.def.type == Content.CardType.GREAT_WONDER) w = c;
-        assertNotNull(w, "Stonehenge is in the Prehistoric deck");
-        g.eraDeck.remove(w);
+        g.greatWonders.clear();
+        Game.CardInst w = card(g, "stonehenge");
         g.queue.add(0, new Game.Slot(w, null));
         g.act(p.seat, Map.of("type", "pick", "slot", 0));
         assertEquals(1, g.greatWonders.size());

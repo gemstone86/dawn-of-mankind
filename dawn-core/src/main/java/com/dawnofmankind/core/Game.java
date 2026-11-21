@@ -77,23 +77,25 @@ public final class Game {
     }
 
     /**
-     * A land that can be settled. Face-up lands stay until settled and are paid for with Settle cards; lands found by
-     * events vanish after a while and anyone can pay toward them (1 action). Payments add up until the cost is met.
+     * A land that can be settled. Face-up lands (2 from the start, plus any turned up by Send Scouts) stay until
+     * settled or removed by an event, and are paid toward with Settle cards; payments stay on the land. A land found by
+     * an event must be settled at once, in that event's response window (anyone, free), or it is discarded with
+     * everything sent.
      */
     public static final class Frontier {
         public final Territory land;
         public final boolean fromEvent;
-        /** Event lands vanish at the end of this round. */
-        public final int lastRound;
+        /** For lands found by an event: that event card (the land is discarded when it resolves). */
+        public final int eventCard;
         public int enemy;
         public final EnumMap<Res, Integer> paid = Res.empty();
         public int troopsPaid, settlersPaid;
         public final Map<Integer, EnumMap<Res, Integer>> bySeat = new LinkedHashMap<>();
 
-        Frontier(Territory land, boolean fromEvent, int lastRound) {
+        Frontier(Territory land, boolean fromEvent, int eventCard) {
             this.land = land;
             this.fromEvent = fromEvent;
-            this.lastRound = lastRound;
+            this.eventCard = eventCard;
         }
     }
 
@@ -372,6 +374,8 @@ public final class Game {
             pending = new Pending(e, target, d.strength(players.size(), realm.size()));
             for (Player p : players) pending.ready.put(p.seat, p.away);
             log("Event: " + d.name + (target >= 0 ? " (" + players.get(target).name + ")" : "") + " — " + d.text);
+            // a land found by this event is shown now, so the team can pay for it before the event resolves
+            applyImmediate(d.effects.stream().filter(x -> x.containsKey("discover")).toList(), players, null, 1.0, false);
             if (!needsResponses()) {
                 resolvePending();
                 continue;
@@ -383,6 +387,7 @@ public final class Game {
     /** True if anyone can do something about the pending event; otherwise it resolves at once. */
     private boolean needsResponses() {
         CardDef d = pending.event.def;
+        if (frontier.stream().anyMatch(f -> f.eventCard == pending.event.id)) return true;
         if ("invasion".equals(d.kind)) return players.stream().anyMatch(p -> !p.away && p.army - p.committed > 0)
                 || anyResponseCard(d);
         if ("opportunity".equals(d.kind)) return !players.get(pending.target).away;
@@ -425,7 +430,6 @@ public final class Game {
             }
         }
         refillQueue();
-        expireLands();
         for (Player p : players) p.committed = 0;
         if (eraEnding || eraDeck.isEmpty()) {
             if (!eraEnding) log("The era deck is exhausted.");
@@ -465,6 +469,7 @@ public final class Game {
             case "troops" -> troops(p, a);
             case "decide" -> decide(p, a);
             case "ready" -> ready(p);
+            case "colonize" -> colonize(p, a);
             // turn
             case "endTurn" -> {
                 myTurn(p);
@@ -483,11 +488,6 @@ public final class Game {
                     case "grow" -> grow(p);
                     case "recruit" -> recruit(p);
                     case "contribute" -> contribute(p, a);
-                    case "colonize" -> {
-                        LandPayment lp = landPayment(p, a, Res.empty());
-                        if (!lp.land().fromEvent) throw new GameException("Face-up lands are settled with Settle cards.");
-                        payLand(p, lp);
-                    }
                     case "cleanse" -> cleanse(p, a);
                     default -> throw new GameException("Unknown action: " + type);
                 }
@@ -495,6 +495,16 @@ public final class Game {
             }
         }
         version++;
+    }
+
+    /** Paying toward a land found by an event: free during its event, 1 action during a turn. */
+    private void colonize(Player p, Map<String, Object> a) {
+        LandPayment lp = landPayment(p, a, Res.empty());
+        Frontier f = lp.land();
+        if (!f.fromEvent) throw new GameException("Face-up lands are settled with Settle cards.");
+        if (phase != Phase.EVENTS || pending == null || pending.event.id != f.eventCard) throw new GameException("Too late for that land.");
+        if (Boolean.TRUE.equals(pending.ready.get(p.seat))) throw new GameException("You have already passed on this event.");
+        payLand(p, lp);
     }
 
     private void myTurn(Player p) {
@@ -687,7 +697,7 @@ public final class Game {
     /** Keeps {@code faceUpLands} face-up lands (the ones not from events). */
     private void refillLands() {
         while (frontier.stream().filter(f -> !f.fromEvent).count() < content.rules.faceUpLands && !worldDeck.isEmpty()) {
-            frontier.add(new Frontier(worldDeck.remove(0), false, Integer.MAX_VALUE));
+            frontier.add(new Frontier(worldDeck.remove(0), false, -1));
         }
     }
 
@@ -762,10 +772,12 @@ public final class Game {
         lp.res().forEach((r, v) -> f.paid.merge(r, v, Integer::sum));
         EnumMap<Res, Integer> mine = f.bySeat.computeIfAbsent(p.seat, x -> Res.empty());
         lp.res().forEach((r, v) -> mine.merge(r, v, Integer::sum));
-        p.army -= lp.troops();
+        // troops sent count fully against the land's enemy strength; half of them (rounded up) are lost, the rest return
+        int troopsLost = (lp.troops() + 1) / 2;
+        p.army -= troopsLost;
         f.troopsPaid += lp.troops();
         f.settlersPaid += lp.settlers();
-        String what = Res.describe(lp.res()) + (lp.troops() > 0 ? ", " + lp.troops() + " troops" : "") + (lp.settlers() > 0 ? ", " + lp.settlers() + " settlers" : "");
+        String what = Res.describe(lp.res()) + (lp.troops() > 0 ? ", " + lp.troops() + " troops (" + troopsLost + " lost)" : "") + (lp.settlers() > 0 ? ", " + lp.settlers() + " settlers" : "");
         log(p.name + " sends " + what + " toward the " + f.land.def.name + ".");
         if (lp.settlers() > 0) losePopulation(p, lp.settlers());
         if (Res.isZero(settleLeft(f)) && f.troopsPaid >= settleTroops(f) && f.settlersPaid >= settleSettlers(f)) {
@@ -776,14 +788,12 @@ public final class Game {
         }
     }
 
-    /** Event lands not settled in time vanish; half of the resources paid go back. */
-    private void expireLands() {
+    /** Found lands that weren't settled in time are gone; nothing paid comes back. */
+    private void loseFoundLands(int eventCard) {
         for (Frontier f : List.copyOf(frontier)) {
-            if (!f.fromEvent || f.lastRound > round) continue;
+            if (!f.fromEvent || f.eventCard != eventCard) continue;
             frontier.remove(f);
-            f.bySeat.forEach((seat, paid) -> paid.forEach((r, v) -> players.get(seat).res.merge(r, v / 2, Integer::sum)));
-            if (!f.land.def.special) worldDeck.add(f.land);
-            log("The chance to settle the " + f.land.def.name + " has passed" + (Res.isZero(f.paid) ? "." : "; half of what was sent is returned."));
+            log("The " + f.land.def.name + " was not settled in time and is lost to the realm" + (Res.isZero(f.paid) && f.troopsPaid == 0 ? "." : "; what was sent is gone."));
         }
     }
 
@@ -795,7 +805,7 @@ public final class Game {
         return t;
     }
 
-    /** An event finds a land: it can be settled by anyone, together, until it vanishes. */
+    /** An event (or Send Scouts) finds a land: it must be settled at once. */
     private void discover(TerritoryDef def) {
         Territory land;
         if (def.special) {
@@ -805,9 +815,13 @@ public final class Game {
             if (land == null) return;
             worldDeck.remove(land);
         }
-        Frontier f = new Frontier(land, true, round + content.rules.eventLandRounds - (phase == Phase.EVENTS ? 0 : 1));
-        frontier.add(f);
-        log("Discovered: " + def.name + " (" + def.text + "). Anyone can help settle it until the end of round " + f.lastRound + ".");
+        if (phase == Phase.EVENTS && pending != null) {
+            frontier.add(new Frontier(land, true, pending.event.id));
+            log("Found: " + def.name + " (" + def.text + "). Settle it before this event is resolved, or it is lost.");
+        } else {
+            frontier.add(new Frontier(land, false, -1));
+            log("Scouts find the " + def.name + " (" + def.text + "). It lies face up until settled.");
+        }
     }
 
     private void loseTerritory(Territory t) {
@@ -976,6 +990,7 @@ public final class Game {
         CardDef d = ev.def;
         drawnIndex++;
         if (pe.cancel) {
+            loseFoundLands(ev.id);
             log(d.name + " is averted.");
             pastEvents.add(ev);
             return;
@@ -1011,8 +1026,9 @@ public final class Game {
                     log(t.name + " lets the opportunity pass.");
                 }
             }
-            default -> applyImmediate(d.effects, targets, null, factor, "civ".equals(d.target));
+            default -> applyImmediate(d.effects.stream().filter(x -> !x.containsKey("discover")).toList(), targets, null, factor, "civ".equals(d.target));
         }
+        loseFoundLands(ev.id);
         if (d.eraTrigger && era().cards.containsKey(d.id)) {
             eraEnding = true;
             log(d.name + ": this era will end at the end of the round.");
@@ -1030,15 +1046,16 @@ public final class Game {
         CardDef d = pe.event.def;
         int defense = Math.max(0, t.army - t.committed) + mods(t).raidDefense + pe.defenseBonus;
         int s = pe.strength;
+        // the troops that fight (up to the raid's strength) are spent; half of them, rounded up, are lost
+        int spent = Math.min(Math.max(0, t.army - t.committed), s);
+        int lost = (spent + 1) / 2;
         if (defense >= s) {
-            int lost = Math.min(t.army - t.committed, s / Math.max(1, content.rules.raidCasualtyDivisor));
             t.army -= lost;
             log(t.name + " drives off " + d.name + " (defense " + defense + " vs " + s + ")" + (lost > 0 ? ", losing " + lost + " troops." : "."));
             return;
         }
         int shortfall = s - defense;
         int times = (int) Math.floor(shortfall * factor);
-        int lost = (int) Math.ceil((t.army - t.committed) / 2.0);
         t.army -= lost;
         log(d.name + " overwhelms " + t.name + " (defense " + defense + " vs " + s + "): " + times + " times its losses"
                 + (lost > 0 ? ", " + lost + " troops lost." : "."));
@@ -1055,16 +1072,17 @@ public final class Game {
         int total = sent + pe.defenseBonus + civMods().invasionDefense;
         int s = pe.strength;
         pe.troops.forEach((seat, n) -> players.get(seat).committed += n);
+        // the troops spent (up to the invasion's strength) lose half, rounded up, split between the senders
+        int spent = Math.min(sent, s);
+        int casualties = (spent + 1) / 2;
+        distributeCasualties(pe.troops, casualties, sent);
         if (total >= s) {
-            int casualties = Math.min(sent, (int) Math.ceil(s / (double) Math.max(1, content.rules.invasionCasualtyDivisor)));
-            distributeCasualties(pe.troops, casualties, sent);
             log("The united army (" + total + ") repels " + d.name + " (" + s + "), losing " + casualties + " troops.");
             return;
         }
-        pe.troops.forEach((seat, n) -> players.get(seat).army -= n);
         int shortfall = s - total;
         int times = (int) Math.floor(shortfall * factor);
-        log(d.name + " (" + s + ") breaks through the defenders (" + total + "): every sent troop is lost, " + times + " times its losses.");
+        log(d.name + " (" + s + ") breaks through the defenders (" + total + "): " + casualties + " troops lost, " + times + " times its losses.");
         for (int i = 0; i < times; i++) applyImmediate(d.perShortfall, players, null, 1.0, true);
         if (!realm.isEmpty()) loseTerritory(realm.get(rng.nextInt(realm.size())));
         if (times > 0) {
@@ -1175,6 +1193,16 @@ public final class Game {
                         f.enemy += one;
                         log("The " + f.land.def.name + " gains " + one + " enemy strength (now " + f.enemy + ").");
                     }
+                }
+                case "removeLand" -> {
+                    List<Frontier> faceUp = frontier.stream().filter(f -> !f.fromEvent).toList();
+                    for (int i = 0; i < Y.toInt(v) && !faceUp.isEmpty(); i++) {
+                        Frontier f = faceUp.get(rng.nextInt(faceUp.size()));
+                        frontier.remove(f);
+                        log("The " + f.land.def.name + " is claimed by others" + (Res.isZero(f.paid) && f.troopsPaid == 0 ? "." : "; what was sent toward it is lost."));
+                        faceUp = frontier.stream().filter(x -> !x.fromEvent).toList();
+                    }
+                    refillLands();
                 }
                 case "discover" -> {
                     if (v instanceof Number num) {

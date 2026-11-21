@@ -96,7 +96,7 @@ public final class View {
             m.put("settlers", g.settleSettlers(f));
             m.put("settlersPaid", f.settlersPaid);
             m.put("fromEvent", f.fromEvent);
-            m.put("lastRound", f.fromEvent ? f.lastRound : null);
+            m.put("duringEvent", f.fromEvent);
             Map<String, Object> by = new LinkedHashMap<>();
             f.bySeat.forEach((s2, r) -> by.put(g.players.get(s2).name, res(r)));
             m.put("bySeat", by);
