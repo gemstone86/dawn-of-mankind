@@ -44,6 +44,11 @@ public final class View {
         for (int i = 0; i < g.queue.size(); i++) {
             Slot s = g.queue.get(i);
             Map<String, Object> m = card(s.card);
+            if (s.card.def.type == Content.CardType.GREAT_WONDER) {
+                WonderDef w = g.content.greatWonders.get(s.card.def.wonder);
+                m.put("cost", res(w.cost(g.players.size())));
+                m.put("victoryPoints", w.victoryPoints);
+            }
             m.put("slot", i);
             m.put("faceDown", s.under != null);
             queue.add(m);
@@ -52,7 +57,7 @@ public final class View {
 
         v.put("eventDeck", g.currentEvents.size());
         v.put("eventDeckContents", countByName(g.currentEvents));
-        v.put("futureEvents", g.futureEvents.stream().map(View::card).toList());
+        v.put("futureEvents", g.futureEvents.size()); // face down: only how many
         v.put("pastEvents", g.pastEvents.stream().map(View::card).toList().reversed());
         v.put("persistentEvents", g.persistentEvents.stream().map(View::card).toList());
         v.put("crisisPile", g.crisisPile.size());

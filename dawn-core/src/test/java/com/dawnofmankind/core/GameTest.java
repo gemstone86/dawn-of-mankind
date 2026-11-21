@@ -30,7 +30,7 @@ class GameTest {
         assertEquals(2, p.buildings.size());
         assertEquals(4, g.actionsLeft);
         assertEquals(8, g.currentEvents.size(), "2 starting events per player");
-        assertEquals(6, g.queue.size(), "queue = players + 2");
+        assertEquals(8, g.queue.size(), "queue = players + 4");
         for (Slot s : g.queue) assertEquals(s.card.def.isEvent(), s.under != null, "events have a face-down card under them");
         // round 1 production: 2 farmers make 4 food, 3 Population eat 3, the miner makes 2 production
         assertEquals(3 + 4 - 3, p.res.get(Res.FOOD));
@@ -71,6 +71,20 @@ class GameTest {
     }
 
     @Test
+    void greatWondersGoOnTheBoard() {
+        Game g = game(2, 7);
+        Player p = g.players.get(g.currentPlayer);
+        Game.CardInst w = null;
+        for (Game.CardInst c : g.eraDeck) if (c.def.type == Content.CardType.GREAT_WONDER) w = c;
+        assertNotNull(w, "Stonehenge is in the Prehistoric deck");
+        g.eraDeck.remove(w);
+        g.queue.add(0, new Game.Slot(w, null));
+        g.act(p.seat, Map.of("type", "pick", "slot", 0));
+        assertEquals(1, g.greatWonders.size());
+        assertFalse(p.hand.contains(w));
+    }
+
+    @Test
     void buildingAgainAddsSlots() {
         Game g = game(1, 6);
         Player p = g.players.get(0);
@@ -94,11 +108,11 @@ class GameTest {
             CardInst event = g.queue.get(slot).card;
             int future = g.futureEvents.size();
             Player p = g.players.get(g.currentPlayer);
-            int hand = p.hand.size();
+            int got = p.hand.size() + g.greatWonders.size();
             g.act(p.seat, Map.of("type", "pick", "slot", slot));
             assertTrue(g.futureEvents.contains(event));
             assertTrue(g.futureEvents.size() > future);
-            assertEquals(hand + 1, p.hand.size(), "the face-down card (or its replacement) goes to hand");
+            assertEquals(got + 1, p.hand.size() + g.greatWonders.size(), "the face-down card (or its replacement) goes to hand, or a wonder to the board");
             for (CardInst c : p.hand) assertFalse(c.def.isEvent());
             return;
         }

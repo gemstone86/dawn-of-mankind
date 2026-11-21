@@ -170,11 +170,15 @@ public final class Game {
             for (int i = 0; i < copies; i++) (d.eraTrigger ? triggers : pool).add(inst(d));
         });
         int size = content.rules.deckBase + content.rules.deckPerPlayer * players.size() - triggers.size();
+        // the deck is filled from the era's cards, going round again if needed; great wonders appear only once
         List<CardInst> bag = new ArrayList<>();
+        boolean firstPass = true;
         while (eraDeck.size() < size && !pool.isEmpty()) {
             if (bag.isEmpty()) {
-                for (CardInst c : pool) bag.add(inst(c.def));
+                for (CardInst c : pool) if (firstPass || c.def.type != CardType.GREAT_WONDER) bag.add(inst(c.def));
                 Collections.shuffle(bag, rng);
+                firstPass = false;
+                if (bag.isEmpty()) break;
             }
             eraDeck.add(bag.remove(bag.size() - 1));
         }
@@ -183,8 +187,6 @@ public final class Game {
             int from = eraDeck.size() * (100 - content.rules.eraTriggerBottomShare) / 100;
             eraDeck.add(from + rng.nextInt(eraDeck.size() - from + 1), t);
         }
-        greatWonders.clear();
-        for (String id : e.greatWonders) greatWonders.add(new WonderProgress(content.greatWonders.get(id)));
         queue.clear();
         refillQueue();
         log("The " + e.name + " era begins. Era deck: " + eraDeck.size() + " cards.");
@@ -195,8 +197,9 @@ public final class Game {
         for (WonderProgress w : greatWonders) {
             if (w.done) continue;
             w.bySeat.forEach((seat, paid) -> paid.forEach((r, v) -> players.get(seat).res.merge(r, v / 2, Integer::sum)));
-            if (!Res.isZero(w.paid)) log(w.def.name + " was not finished; half of what was paid is returned.");
+            log(w.def.name + " was not finished" + (Res.isZero(w.paid) ? "." : "; half of what was paid is returned."));
         }
+        greatWonders.removeIf(w -> !w.done);
         if (eraIndex + 1 >= content.eras.size()) {
             end("victory", "The civilization endured to the end of the " + era().name + " era.");
             return;
@@ -280,10 +283,10 @@ public final class Game {
             CardInst c = eraDeck.remove(0);
             if (c.def.isEvent()) {
                 futureEvents.add(c);
-                log(p.name + " drew the event " + c.def.name + "; it goes to the future deck.");
+                log(p.name + " drew an event; it goes face down into the future deck.");
                 continue;
             }
-            p.hand.add(c);
+            take(p, c);
             return c;
         }
         return null;
@@ -483,8 +486,8 @@ public final class Game {
         if (i < 0 || i >= queue.size()) throw new GameException("No card in that queue slot.");
         Slot s = queue.remove(i);
         if (!s.card.def.isEvent()) {
-            p.hand.add(s.card);
             log(p.name + " takes " + s.card.def.name + " from the queue.");
+            take(p, s.card);
             return;
         }
         futureEvents.add(s.card);
@@ -492,10 +495,23 @@ public final class Game {
         CardInst under = s.under;
         while (under != null && under.def.isEvent()) {
             futureEvents.add(under);
-            log("The face-down card was the event " + under.def.name + "; it goes to the future deck.");
+            log("The face-down card was another event; it goes face down into the future deck.");
             under = eraDeck.isEmpty() ? null : eraDeck.remove(0);
         }
-        if (under != null) p.hand.add(under);
+        if (under != null) take(p, under);
+    }
+
+    /** A card a player gets: into their hand, except great wonders, which go on the board for the whole team to build. */
+    private void take(Player p, CardInst c) {
+        if (c.def.type != CardType.GREAT_WONDER) {
+            p.hand.add(c);
+            return;
+        }
+        WonderDef w = content.greatWonders.get(c.def.wonder);
+        boolean known = builtWonders.contains(w) || greatWonders.stream().anyMatch(x -> x.def == w);
+        if (known) return;
+        greatWonders.add(new WonderProgress(w));
+        log(p.name + " brings the great wonder " + w.name + " to the tribe: everyone can now help build it.");
     }
 
     private CardInst handCard(Player p, Map<String, Object> a) {
@@ -508,6 +524,7 @@ public final class Game {
         CardInst c = handCard(p, a);
         CardDef d = c.def;
         if (d.type == CardType.RESPONSE) throw new GameException(d.name + " can only be played when an event resolves.");
+        if (d.type == CardType.GREAT_WONDER) throw new GameException("Great wonders are built on the board.");
         if (p.owns(d)) throw new GameException("You already have " + d.name + ".");
         pay(p, d.cost);
         p.hand.remove(c);

@@ -16,7 +16,7 @@ import org.yaml.snakeyaml.Yaml;
  */
 public final class Content {
 
-    public enum CardType { TECH, ACTION, RESPONSE, MINOR_WONDER, EVENT }
+    public enum CardType { TECH, ACTION, RESPONSE, MINOR_WONDER, GREAT_WONDER, EVENT }
 
     /** Rule numbers from the {@code rules:} block. */
     public static final class Rules {
@@ -43,6 +43,8 @@ public final class Content {
     public static final class CardDef {
         public String id, name, text, flavor, era;
         public CardType type;
+        /** For great wonder cards: the wonder it starts. */
+        public String wonder;
         public EnumMap<Res, Integer> cost;
         /** What playing the card does (tech, action, wonder) or, for events, what happens on resolution. */
         public List<Map<String, Object>> effects = new ArrayList<>();
@@ -85,7 +87,6 @@ public final class Content {
         public String id, name;
         public int order;
         public Map<String, Integer> cards = new LinkedHashMap<>();
-        public List<String> greatWonders = new ArrayList<>();
     }
 
     public final Rules rules = new Rules();
@@ -113,6 +114,21 @@ public final class Content {
         Y.map(root.get("buildings")).forEach((id, v) -> c.buildings.put(id, building(id, Y.map(v))));
         Y.map(root.get("cards")).forEach((id, v) -> c.cards.put(id, card(id, Y.map(v))));
         Y.map(root.get("greatWonders")).forEach((id, v) -> c.greatWonders.put(id, wonder(id, Y.map(v))));
+        // every great wonder is also a card that can turn up in the queue
+        for (WonderDef w : c.greatWonders.values()) {
+            if (c.cards.containsKey(w.id)) throw new IllegalStateException("A card and a great wonder share the id " + w.id);
+            CardDef d = new CardDef();
+            d.id = w.id;
+            d.name = w.name;
+            d.text = w.text;
+            d.flavor = "";
+            d.type = CardType.GREAT_WONDER;
+            d.cost = Res.empty();
+            d.offerCost = Res.empty();
+            d.cleanseCost = Res.empty();
+            d.wonder = w.id;
+            c.cards.put(w.id, d);
+        }
         int order = 0;
         for (Object o : Y.list(root.get("eras"))) {
             Map<String, Object> m = Y.map(o);
@@ -121,7 +137,6 @@ public final class Content {
             e.name = Y.s(m, "name", e.id);
             e.order = order++;
             Y.map(m.get("cards")).forEach((k, v) -> e.cards.put(k, Y.toInt(v)));
-            e.greatWonders.addAll(Y.strings(m.get("greatWonders")));
             c.eras.add(e);
         }
         Y.map(root.get("startingEvents")).forEach((k, v) -> c.startingEvents.put(k, Y.toInt(v)));
@@ -226,7 +241,6 @@ public final class Content {
     private void validate() {
         for (EraDef e : eras) {
             for (String id : e.cards.keySet()) if (!cards.containsKey(id)) throw new IllegalStateException("Era " + e.id + " lists unknown card " + id);
-            for (String id : e.greatWonders) if (!greatWonders.containsKey(id)) throw new IllegalStateException("Era " + e.id + " lists unknown wonder " + id);
         }
         for (String id : startingEvents.keySet()) if (!cards.containsKey(id) || !cards.get(id).isEvent()) throw new IllegalStateException("Starting event " + id + " is not an event card");
         for (String id : crisisCards) if (!cards.containsKey(id) || !cards.get(id).isEvent()) throw new IllegalStateException("Crisis " + id + " is not an event card");

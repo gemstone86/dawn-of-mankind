@@ -57,9 +57,9 @@ culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population 
 4. **End of round**: 1 / 2 / 3 cards (for 1–2 / 3–4 / 5–6 players) leave the bottom of the queue, the queue is
    refilled, and the First Player passes on.
 
-**Events never stay in a hand.** An event picked from the queue goes to the future deck and the picker gets the
-face-down card under it (another event there goes to the future deck too, and they draw again). Blind-drawn events
-also go to the future deck. Events that leave the bottom of the queue go to the future deck and their face-down card
+**The queue** holds players + 4 cards. **Events never stay in a hand.** An event picked from the queue goes to the
+(face-down) future deck and the picker gets the face-down card under it (another event there goes to the future deck
+too, and they draw again). Blind-drawn events also go face down to the future deck. Events that leave the bottom of the queue go to the future deck and their face-down card
 is discarded. The starting event deck holds 2 Prehistoric events per player.
 
 **Raids** strike one player, who defends alone (army + raid defense + response cards). **Invasions** strike
@@ -72,7 +72,9 @@ Meteor Impact, Climate Change) are added to the future deck by certain events an
 
 **The game** is lost if Stability reaches 0 or everyone's Population is gone, and won by finishing the last era.
 The score is the victory points of the **great wonders** built (Stonehenge, the Pyramids, the Hanging Gardens, the
-Great Library, the Colossus). Their bonuses and points in content.yaml are placeholders.
+Great Library, the Colossus). Great wonders are cards in the era decks: whoever picks or draws one puts it on the
+board, and everyone can contribute to it. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
+bonuses and points in content.yaml are placeholders.
 
 ### Choices made where the requirements were open (all easy to change)
 

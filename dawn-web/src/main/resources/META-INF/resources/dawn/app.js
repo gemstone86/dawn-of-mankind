@@ -173,9 +173,10 @@ function renderStatus() {
 
 function cardHtml(c, extra = '', cls = '') {
   const kind = c.type === 'event' ? `event ${c.category || ''} ${c.crisis ? 'crisis' : ''}` : c.type;
-  const typeLabel = c.type === 'event' ? (c.crisis ? 'Crisis' : 'Event · ' + (c.category || '')) : c.type.replace('_', ' ');
+  const typeLabel = c.type === 'event' ? (c.crisis ? 'Crisis' : 'Event · ' + (c.category || ''))
+    : c.type === 'great_wonder' ? `Great wonder · ${c.victoryPoints} points` : c.type.replace('_', ' ');
   return `<div class="cardx ${kind} ${cls}"><div class="type">${esc(typeLabel)}</div><div class="name">${esc(c.name)}</div>
-    ${c.cost ? `<div class="small">Cost: ${resList(c.cost)}</div>` : ''}<div class="text">${esc(c.text)}</div>${extra}</div>`;
+    ${c.cost ? `<div class="small">${c.type === 'great_wonder' ? 'Team cost' : 'Cost'}: ${resList(c.cost)}</div>` : ''}<div class="text">${esc(c.text)}</div>${extra}</div>`;
 }
 
 function renderQueue() {
@@ -184,7 +185,8 @@ function renderQueue() {
   const items = s.queue.map((c, i) => {
     const isLeaving = i >= n - leaving;
     const fd = c.faceDown ? '<div class="facedown">+ a face-down card underneath</div>' : '';
-    const btn = `<div class="actions"><button ${canAct() ? '' : 'disabled'} data-pick="${i}">${c.type === 'event' ? 'Take on (1 action)' : 'Pick (1 action)'}</button></div>`;
+    const label = c.type === 'event' ? 'Take on' : c.type === 'great_wonder' ? 'Start building' : 'Pick';
+    const btn = `<div class="actions"><button ${canAct() ? '' : 'disabled'} data-pick="${i}">${label} (1 action)</button></div>`;
     return cardHtml(c, `${fd}${btn}`, isLeaving ? 'leaving' : '');
   }).reverse().join('');
   $('queuePanel').innerHTML = `<div class="queue-head"><h2>Card queue</h2><span class="muted small">At the end of the round the ${leaving} leftmost card${leaving > 1 ? 's' : ''} (dashed) leave${leaving > 1 ? '' : 's'}; events that leave go to the future deck.</span></div>
@@ -207,7 +209,7 @@ function renderWonders() {
       <div class="small">Paid ${resList(w.paid, { all: false })} of ${resList(w.cost)}</div><div class="prog"><div style="width:${total ? 100 * paid / total : 0}%"></div></div>${by}${form}</div>`;
   }).join('');
   const built = s.builtWonders.length ? `<p class="small">Built: ${s.builtWonders.map(w => `<span class="chip">${esc(w.name)} (${w.victoryPoints})</span>`).join('')}</p>` : '';
-  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Built together. Their points are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None this era.</p>'}</div>`;
+  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Their points are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
 }
 $('wonderPanel').onclick = e => {
   const b = e.target.closest('[data-wonder]'); if (!b) return;
@@ -245,7 +247,7 @@ function renderEvents() {
       ${p.kind === 'invasion' ? `<div class="small">Troops sent: ${Object.entries(p.troops).map(([seat, n]) => esc(s.players[seat].name) + ' ' + n).join(', ') || 'none yet'}</div>` : ''}
       <div class="actions">${controls}</div><div class="readylist">${waiting.length ? 'Waiting for: ' + waiting.join(', ') : ''}</div>`, 'pending');
   } else {
-    html += `<p class="muted small">After everyone's turn, as many events are drawn from the event deck as the future deck holds (now <b>${s.futureEvents.length}</b>).</p>`;
+    html += `<p class="muted small">After everyone's turn, as many events are drawn from the event deck as the future deck holds (now <b>${s.futureEvents}</b>).</p>`;
   }
   if (s.persistentEvents.length) {
     html += '<h3>Lasting events</h3><div class="cards">' + s.persistentEvents.map(c => cardHtml(c,
@@ -359,8 +361,7 @@ function renderDecks() {
   const contents = Object.entries(s.eventDeckContents).map(([n, c]) => `${esc(n)}${c > 1 ? ' ×' + c : ''}`).join(', ');
   $('deckPanel').innerHTML = `<h2>Event decks</h2>
     <div class="small">Event deck: <b>${s.eventDeck}</b> cards <details><summary>What's in it</summary>${contents || 'empty'}</details></div>
-    <div class="small" style="margin-top:.3rem">Future deck (face up): <b>${s.futureEvents.length}</b> — this many events strike this round</div>
-    <div class="cards" style="margin-top:.3rem">${s.futureEvents.map(c => cardHtml(c)).join('')}</div>
+    <div class="small" style="margin-top:.3rem">Future deck (face down): <b>${s.futureEvents}</b> — this many events strike this round</div>
     <div class="small muted" style="margin-top:.3rem">Crisis cards waiting: ${s.crisisPile}</div>
     <details style="margin-top:.3rem"><summary>Past events (${s.pastEvents.length})</summary><div class="cards">${s.pastEvents.map(c => cardHtml(c)).join('')}</div></details>`;
 }

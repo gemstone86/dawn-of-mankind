@@ -16,7 +16,7 @@ rules:
   foodUpkeepPerPop: 1
   startStability: 10
   startHealth: 2
-  queueExtra: 2                           # queue size = players + 2
+  queueExtra: 4                           # queue size = players + 4
   removedPerRound: {1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3}
   startingEventsPerPlayer: 2
   eraDeckSize: {base: 20, perPlayer: 12}
@@ -52,6 +52,7 @@ buildings:
     text: Each worker produces 1 research and 1 culture.
 
 # Great wonders are the measure of a game: the final score is the sum of their victory points.
+# Each is also a card (same id) listed in an era below: when a player picks or draws it, it goes on the board.
 # Bonuses and points are placeholders, to be reworked.
 greatWonders:
   stonehenge:
@@ -93,8 +94,9 @@ greatWonders:
 eras:
   - id: prehistoric
     name: Prehistoric
-    greatWonders: [stonehenge]
     cards:
+      # great wonders (taking one puts it on the board for the team to build)
+      stonehenge: 1
       # technologies
       fire: 1
       stone_tools: 1
@@ -137,8 +139,11 @@ eras:
       dawn_of_agriculture: 1
   - id: ancient
     name: Ancient
-    greatWonders: [pyramids, hanging_gardens, great_library, colossus]
     cards:
+      pyramids: 1
+      hanging_gardens: 1
+      great_library: 1
+      colossus: 1
       agriculture: 1
       bronze_working: 1
       writing: 1
