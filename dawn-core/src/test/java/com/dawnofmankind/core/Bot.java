@@ -46,7 +46,14 @@ final class Bot {
     private boolean takeAction(Game g, Player p) {
         // play techs, wonders and actions
         for (CardInst c : List.copyOf(p.hand)) {
-            if (c.def.type != CardType.RESPONSE && tryAct(g, p, Map.of("type", "play", "card", c.id))) return true;
+            if (c.def.type == CardType.RESPONSE) continue;
+            if (tryAct(g, p, Map.of("type", "play", "card", c.id))) return true;
+            for (Game.Frontier f : g.frontier) {
+                if (tryAct(g, p, Map.of("type", "play", "card", c.id, "land", f.land.id))) return true;
+            }
+            for (Game.Territory t : g.realm) {
+                if (!t.cored && tryAct(g, p, Map.of("type", "play", "card", c.id, "territory", t.id))) return true;
+            }
         }
         if (!g.persistentEvents.isEmpty() && tryAct(g, p, Map.of("type", "cleanse", "event", g.persistentEvents.get(0).id))) return true;
         // put idle people to work
@@ -69,16 +76,6 @@ final class Bot {
             Map<String, Object> m = new HashMap<>();
             for (Res r : Res.values()) m.put(r.key(), give.get(r));
             if (tryAct(g, p, Map.of("type", "contribute", "wonder", w.def.id, "resources", m))) return true;
-        }
-        for (Game.Frontier f : g.frontier) {
-            Map<String, Object> m = new HashMap<>();
-            for (Res r : Res.values()) {
-                int need = f.cost.get(r) - f.paid.get(r);
-                m.put(r.key(), Math.max(0, Math.min(need, p.res.get(r) - (r == Res.FOOD ? pop : 0))));
-            }
-            int people = pop > 3 ? Math.min(f.population - f.populationPaid, pop - 3) : 0;
-            int troops = Math.min(f.army - f.armyPaid, Math.max(0, p.army - p.committed - 1));
-            if (tryAct(g, p, Map.of("type", "colonize", "land", f.land.id, "resources", m, "population", people, "army", troops))) return true;
         }
         if (!g.queue.isEmpty() && p.hand.size() < g.handLimit(p)) {
             return tryAct(g, p, Map.of("type", "pick", "slot", rng.nextInt(g.queue.size())));

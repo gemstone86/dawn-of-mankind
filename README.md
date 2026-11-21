@@ -48,10 +48,14 @@ costs 1 production more than the last. Events that destroy a building take a lev
 Jungle, Coast, Forest, Ocean): 2 at the start. Each territory gives every player worker slots for land-bound
 buildings (Plains: +2 farm slots, Mountains: +2 mine slots, …) and a bonus (Steppe: +2 military strength, Jungle:
 +1 research per turn, Coast: +1 colonization value, …). Farms and mines can only grow as far as the land allows
-(each player also has 2 home slots of each). Discovery events and the Send Scouts card put new lands on the
-**frontier**; the team settles one by paying its cost together: per player 2 food and 2 production, +1 production
-for each territory beyond the first two, minus the realm's colonization value. The Rich Land costs 2 settlers and
-2 troops per player instead. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
+(each player also has 2 home slots of each). Two lands lie **face up** to be
+settled (more can be turned up by discovery events and the Send Scouts card). A **Settle** card takes one: the player
+pays its cost (per player 2 food and 2 production, +1 production for each territory beyond the first two, minus the
+realm's colonization value) and needs free troops at least the land's **enemy strength**, losing half of that.
+Teammates can give resources and troops for free. The taken land is replaced from the world deck. Events (Hostile
+Tribes, A Warlord Rises) raise the enemy strength of face-up lands. The Rich Land costs 2 settlers and 2 troops per
+player instead. **Fortify the Heartland** makes a territory a **core**: a broken invasion that would take it only
+removes its core status. Farmers make 2 food, miners 2 production, temple workers 1 culture, village workers 1 research and 1
 culture. Farm and Mine cost 2 production, Temple and Village 3. Each Population eats 1 food per round.
 
 **A round**
@@ -104,5 +108,4 @@ bonuses and points in content.yaml are placeholders.
 - Happiness is not in the game yet.
 - Territory bonuses go to every player. Forest and Ocean bonuses are placeholders (you named those lands without
   bonuses). Steppe's +2 military strength counts for every raid defense and for the united army in invasions.
-- Discovered lands not settled by the end of the era are lost (half of what was paid is returned).
-- Settling a land is an action (1 per contribution), like contributing to a wonder.
+- Face-up lands stay across eras; their enemy strength starts at 0 and only events raise it.

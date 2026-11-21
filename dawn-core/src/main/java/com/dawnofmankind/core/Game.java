@@ -67,6 +67,8 @@ public final class Game {
         public final int id;
         public final TerritoryDef def;
         public final List<WonderDef> wonders = new ArrayList<>();
+        /** A cored territory is not lost to a broken invasion: it loses its core status instead. */
+        public boolean cored;
 
         Territory(int id, TerritoryDef def) {
             this.id = id;
@@ -74,24 +76,13 @@ public final class Game {
         }
     }
 
-    /** A discovered land the team can colonize together by paying its cost. */
+    /** A face-up land that can be settled with a Settle card; events can raise its enemy strength. */
     public static final class Frontier {
         public final Territory land;
-        public final EnumMap<Res, Integer> cost;
-        public final int population, army;
-        public final EnumMap<Res, Integer> paid = Res.empty();
-        public int populationPaid, armyPaid;
-        public final Map<Integer, EnumMap<Res, Integer>> bySeat = new LinkedHashMap<>();
+        public int enemy;
 
-        Frontier(Territory land, EnumMap<Res, Integer> cost, int population, int army) {
+        Frontier(Territory land) {
             this.land = land;
-            this.cost = cost;
-            this.population = population;
-            this.army = army;
-        }
-
-        boolean complete() {
-            return paid.equals(cost) && populationPaid >= population && armyPaid >= army;
         }
     }
 
@@ -163,6 +154,7 @@ public final class Game {
         }
         Collections.shuffle(worldDeck, rng);
         for (int i = 0; i < r.startTerritories && !worldDeck.isEmpty(); i++) realm.add(worldDeck.remove(0));
+        refillLands();
         for (int i = 0; i < names.size(); i++) {
             Player p = new Player(i, names.get(i));
             r.startResources.forEach((k, v) -> p.res.put(k, v));
@@ -243,11 +235,6 @@ public final class Game {
             log(w.def.name + " was not finished" + (Res.isZero(w.paid) ? "." : "; half of what was paid is returned."));
         }
         greatWonders.removeIf(w -> !w.done);
-        for (Frontier f : frontier) {
-            f.bySeat.forEach((seat, paid) -> paid.forEach((r, v) -> players.get(seat).res.merge(r, v / 2, Integer::sum)));
-            log("The " + f.land.def.name + " on the frontier was not settled" + (Res.isZero(f.paid) ? "." : "; half of what was paid is returned."));
-        }
-        frontier.clear();
         if (eraIndex + 1 >= content.eras.size()) {
             end("victory", "The civilization endured to the end of the " + era().name + " era.");
             return;
@@ -484,7 +471,6 @@ public final class Game {
                     case "grow" -> grow(p);
                     case "recruit" -> recruit(p);
                     case "contribute" -> contribute(p, a);
-                    case "colonize" -> colonize(p, a);
                     case "cleanse" -> cleanse(p, a);
                     default -> throw new GameException("Unknown action: " + type);
                 }
@@ -609,12 +595,34 @@ public final class Game {
         if (d.type == CardType.RESPONSE) throw new GameException(d.name + " can only be played when an event resolves.");
         if (d.type == CardType.GREAT_WONDER) throw new GameException("Great wonders are built on the board.");
         if (p.owns(d)) throw new GameException("You already have " + d.name + ".");
+        boolean settles = d.effects.stream().anyMatch(e -> e.containsKey("settle"));
+        boolean cores = d.effects.stream().anyMatch(e -> e.containsKey("core"));
+        Frontier land = null;
+        Territory core = null;
+        if (settles) {
+            // pay the card first, then check the land with what is left
+            for (Res r : Res.values()) if (p.res.get(r) < d.cost.get(r)) throw new GameException("Not enough " + r.key() + ".");
+            EnumMap<Res, Integer> before = new EnumMap<>(p.res);
+            d.cost.forEach((r, v) -> p.res.merge(r, -v, Integer::sum));
+            try {
+                land = settleTarget(p, a);
+            } finally {
+                p.res.clear();
+                p.res.putAll(before);
+            }
+        }
+        if (cores) core = ownTerritory(a);
         pay(p, d.cost);
         p.hand.remove(c);
         if (d.type == CardType.TECH) p.techs.add(d);
         if (d.type == CardType.MINOR_WONDER) p.minorWonders.add(d);
         log(p.name + " plays " + d.name + ".");
         applyImmediate(d.effects, List.of(p), p, 1.0, false);
+        if (land != null) settle(p, land);
+        if (core != null) {
+            core.cored = true;
+            log("The " + core.def.name + " becomes a core territory.");
+        }
     }
 
     private void grow(Player p) {
@@ -670,80 +678,95 @@ public final class Game {
         log(p.name + " lifts " + e.def.name + ".");
     }
 
-    private void colonize(Player p, Map<String, Object> a) {
-        int id = Y.i(a, "land", -1);
-        Frontier f = frontier.stream().filter(x -> x.land.id == id).findFirst()
-                .orElseThrow(() -> new GameException("No such land on the frontier."));
-        EnumMap<Res, Integer> give = Res.parse(a.get("resources"));
-        int people = Y.i(a, "population", 0), troops = Y.i(a, "army", 0);
-        if (people < 0 || troops < 0) throw new GameException("Amounts can't be negative.");
-        for (Res r : Res.values()) {
-            if (give.get(r) < 0) throw new GameException("Amounts can't be negative.");
-            give.put(r, Math.min(give.get(r), f.cost.get(r) - f.paid.get(r)));
-        }
-        people = Math.min(people, f.population - f.populationPaid);
-        troops = Math.min(troops, f.army - f.armyPaid);
-        if (Res.isZero(give) && people == 0 && troops == 0) throw new GameException("Give something the land still needs.");
-        if (people > p.population()) throw new GameException("You don't have that many people.");
-        if (troops > p.army - p.committed) throw new GameException("You don't have that many free troops.");
-        pay(p, give);
-        give.forEach((r, v) -> f.paid.merge(r, v, Integer::sum));
-        f.bySeat.computeIfAbsent(p.seat, x -> Res.empty()).putAll(merge(f.bySeat.get(p.seat), give));
-        f.populationPaid += people;
-        f.armyPaid += troops;
-        p.army -= troops;
-        String what = Res.describe(give) + (people > 0 ? ", " + people + " settlers" : "") + (troops > 0 ? ", " + troops + " troops" : "");
-        log(p.name + " sends " + what + " to settle the " + f.land.def.name + ".");
-        if (people > 0) losePopulation(p, people);
-        if (f.complete()) {
-            frontier.remove(f);
-            realm.add(f.land);
-            log("The " + f.land.def.name + " joins the realm! " + f.land.def.text);
-        }
+    /** Keeps at least {@code faceUpLands} lands face up; extra ones come from discovery. */
+    private void refillLands() {
+        while (frontier.size() < content.rules.faceUpLands && !worldDeck.isEmpty()) frontier.add(new Frontier(worldDeck.remove(0)));
     }
 
-    private static EnumMap<Res, Integer> merge(EnumMap<Res, Integer> a, EnumMap<Res, Integer> b) {
-        EnumMap<Res, Integer> m = Res.empty();
-        if (a != null) a.forEach((r, v) -> m.merge(r, v, Integer::sum));
-        b.forEach((r, v) -> m.merge(r, v, Integer::sum));
-        return m;
-    }
-
-    /** Puts a land on the frontier with its colonizing cost, fixed now. */
-    private void discover(TerritoryDef def) {
+    /** What settling a land costs now: per player, rising with the realm, lowered by colonization value. */
+    public EnumMap<Res, Integer> settleCost(Frontier f) {
         int n = players.size();
+        TerritoryDef def = f.land.def;
         EnumMap<Res, Integer> cost = Res.empty();
-        int pop = 0, army = 0;
         if (def.special) {
             def.costPerPlayer.forEach((r, v) -> cost.put(r, v * n));
-            pop = def.populationPerPlayer * n;
-            army = def.armyPerPlayer * n;
-        } else {
-            Content.Rules r = content.rules;
-            int extra = Math.max(0, realm.size() - r.colonizeFreeTerritories);
-            int discount = colonizationValue();
-            for (Res x : Res.values()) cost.put(x, r.colonizeCostPerPlayer.get(x) + extra * r.colonizeEscalationPerPlayer.get(x));
-            // colonization value (coasts) lowers the per-player cost: production first, then food
-            for (Res x : List.of(Res.PRODUCTION, Res.FOOD)) {
-                int cut = Math.min(discount, cost.get(x));
-                cost.put(x, cost.get(x) - cut);
-                discount -= cut;
-            }
-            cost.replaceAll((x, v) -> v * n);
+            return cost;
         }
-        Territory land = def.special ? new Territory(nextId++, def) : null;
-        if (land == null) {
-            for (Territory t : worldDeck) if (t.def == def) land = t;
+        Content.Rules r = content.rules;
+        int extra = Math.max(0, realm.size() - r.colonizeFreeTerritories);
+        int discount = colonizationValue();
+        for (Res x : Res.values()) cost.put(x, r.colonizeCostPerPlayer.get(x) + extra * r.colonizeEscalationPerPlayer.get(x));
+        for (Res x : List.of(Res.PRODUCTION, Res.FOOD)) {
+            int c = Math.min(discount, cost.get(x));
+            cost.put(x, cost.get(x) - c);
+            discount -= c;
+        }
+        cost.replaceAll((x, v) -> v * n);
+        return cost;
+    }
+
+    /** Troops needed to settle: the land's enemy strength, plus a special land's own troop cost. */
+    public int settleTroops(Frontier f) {
+        return f.enemy + f.land.def.armyPerPlayer * players.size();
+    }
+
+    public int settleSettlers(Frontier f) {
+        return f.land.def.populationPerPlayer * players.size();
+    }
+
+    /** Checks a Settle card can be played on the chosen land; returns it. Throws if not. */
+    private Frontier settleTarget(Player p, Map<String, Object> a) {
+        int id = Y.i(a, "land", -1);
+        Frontier f = frontier.stream().filter(x -> x.land.id == id).findFirst()
+                .orElseThrow(() -> new GameException("Choose a face-up land to settle."));
+        EnumMap<Res, Integer> cost = settleCost(f);
+        for (Res r : Res.values()) {
+            if (p.res.get(r) < cost.get(r)) throw new GameException("Settling the " + f.land.def.name + " costs " + Res.describe(cost) + ". Teammates can give you resources.");
+        }
+        if (p.army - p.committed < settleTroops(f)) throw new GameException("You need " + settleTroops(f) + " free troops to take the " + f.land.def.name + ".");
+        if (p.population() < settleSettlers(f)) throw new GameException("You need " + settleSettlers(f) + " settlers.");
+        return f;
+    }
+
+    private void settle(Player p, Frontier f) {
+        pay(p, settleCost(f));
+        int lost = (int) Math.ceil(f.enemy / 2.0) + f.land.def.armyPerPlayer * players.size();
+        p.army -= lost;
+        if (settleSettlers(f) > 0) losePopulation(p, settleSettlers(f));
+        frontier.remove(f);
+        realm.add(f.land);
+        log(p.name + " settles the " + f.land.def.name + (lost > 0 ? ", losing " + lost + " troops" : "") + ". " + f.land.def.text);
+        refillLands();
+    }
+
+    private Territory ownTerritory(Map<String, Object> a) {
+        int id = Y.i(a, "territory", -1);
+        Territory t = realm.stream().filter(x -> x.id == id).findFirst()
+                .orElseThrow(() -> new GameException("Choose a territory of the realm."));
+        if (t.cored) throw new GameException("The " + t.def.name + " is already a core territory.");
+        return t;
+    }
+
+    /** Puts a land face up: from the world deck, or a named special land. */
+    private void discover(TerritoryDef def) {
+        Territory land;
+        if (def.special) {
+            land = new Territory(nextId++, def);
+        } else {
+            land = worldDeck.stream().filter(t -> t.def == def).findFirst().orElse(null);
             if (land == null) return;
             worldDeck.remove(land);
         }
-        Frontier f = new Frontier(land, cost, pop, army);
-        frontier.add(f);
-        log("Discovered: " + def.name + " (" + def.text + "). Settling it costs " + Res.describe(cost)
-                + (pop > 0 ? ", " + pop + " settlers" : "") + (army > 0 ? ", " + army + " troops" : "") + ".");
+        frontier.add(new Frontier(land));
+        log("Discovered: " + def.name + " (" + def.text + "), now face up.");
     }
 
     private void loseTerritory(Territory t) {
+        if (t.cored) {
+            t.cored = false;
+            log("The " + t.def.name + " holds, but loses its core status.");
+            return;
+        }
         realm.remove(t);
         for (WonderDef w : t.wonders) builtWonders.remove(w);
         log("The " + t.def.name + " is lost" + (t.wonders.isEmpty() ? "!" : ", and with it " + String.join(", ", t.wonders.stream().map(w -> w.name).toList()) + "!"));
@@ -764,9 +787,13 @@ public final class Game {
     private void give(Player p, Map<String, Object> a) {
         Player to = other(p, a);
         EnumMap<Res, Integer> amt = Res.parse(a.get("resources"));
+        int troops = Y.i(a, "army", 0);
+        if (troops < 0 || troops > p.army - p.committed) throw new GameException("You have " + (p.army - p.committed) + " free troops.");
         pay(p, amt);
         amt.forEach((r, v) -> to.res.merge(r, v, Integer::sum));
-        log(p.name + " gives " + Res.describe(amt) + " to " + to.name + ".");
+        p.army -= troops;
+        to.army += troops;
+        log(p.name + " gives " + Res.describe(amt) + (troops > 0 ? " and " + troops + " troops" : "") + " to " + to.name + ".");
     }
 
     private void giveCard(Player p, Map<String, Object> a) {
@@ -1086,6 +1113,20 @@ public final class Game {
                     if (actor != null && phase == Phase.TURNS && actor.seat == currentPlayer) actionsLeft += Y.toInt(v);
                 }
                 case "addCrisis" -> addCrisis(String.valueOf(v));
+                case "enemy" -> {
+                    Map<String, Object> m = Y.map(v);
+                    int each = Y.i(m, "each", 0), one = Y.i(m, "one", 0);
+                    if (frontier.isEmpty()) break;
+                    if (each > 0) {
+                        for (Frontier f : frontier) f.enemy += each;
+                        log("Every face-up land gains " + each + " enemy strength.");
+                    }
+                    if (one > 0) {
+                        Frontier f = frontier.get(rng.nextInt(frontier.size()));
+                        f.enemy += one;
+                        log("The " + f.land.def.name + " gains " + one + " enemy strength (now " + f.enemy + ").");
+                    }
+                }
                 case "discover" -> {
                     if (v instanceof Number num) {
                         for (int i = 0; i < num.intValue() && !worldDeck.isEmpty(); i++) discover(worldDeck.get(0).def);

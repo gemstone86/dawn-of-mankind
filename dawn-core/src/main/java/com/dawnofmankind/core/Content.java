@@ -32,7 +32,7 @@ public final class Content {
         /** Extra production for each level a building already has. */
         public int buildingEscalation;
         public EnumMap<Res, Integer> colonizeCostPerPlayer, colonizeEscalationPerPlayer;
-        public int colonizeFreeTerritories;
+        public int colonizeFreeTerritories, faceUpLands;
 
         public int removedPerRound(int players) {
             return removedPerRound.getOrDefault(players, players <= 2 ? 1 : players <= 4 ? 2 : 3);
@@ -189,6 +189,7 @@ public final class Content {
         }
         Y.map(m.get("homeSlots")).forEach((k, v) -> rules.homeSlots.put(k, Y.toInt(v)));
         rules.startTerritories = Y.i(m, "startTerritories", 2);
+        rules.faceUpLands = Y.i(m, "faceUpLands", 2);
         rules.growthStep = Y.i(m, "growthStep", 4);
         rules.buildingEscalation = Y.i(m, "buildingEscalation", 1);
         Map<String, Object> col = Y.map(m.get("colonize"));

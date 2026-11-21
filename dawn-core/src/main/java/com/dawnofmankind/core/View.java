@@ -80,21 +80,18 @@ public final class View {
         for (Game.Territory t : g.realm) {
             Map<String, Object> m = territory(t);
             m.put("wonders", t.wonders.stream().map(w -> w.name).toList());
+            m.put("cored", t.cored);
             realm.add(m);
         }
         v.put("realm", realm);
         List<Object> frontier = new ArrayList<>();
         for (Game.Frontier f : g.frontier) {
             Map<String, Object> m = territory(f.land);
-            m.put("cost", res(f.cost));
-            m.put("paid", res(f.paid));
-            m.put("population", f.population);
-            m.put("populationPaid", f.populationPaid);
-            m.put("army", f.army);
-            m.put("armyPaid", f.armyPaid);
-            Map<String, Object> by = new LinkedHashMap<>();
-            f.bySeat.forEach((s2, r) -> by.put(g.players.get(s2).name, res(r)));
-            m.put("bySeat", by);
+            m.put("enemy", f.enemy);
+            m.put("cost", res(g.settleCost(f)));
+            m.put("troops", g.settleTroops(f));
+            m.put("settlers", g.settleSettlers(f));
+            m.put("special", f.land.def.special);
             frontier.add(m);
         }
         v.put("frontier", frontier);
@@ -261,6 +258,10 @@ public final class View {
             if (d.persistent) m.put("cleanse", res(d.cleanseCost));
         }
         if (!d.respondsTo.isEmpty()) m.put("respondsTo", d.respondsTo);
+        for (Map<String, Object> e : d.effects) {
+            if (e.containsKey("settle")) m.put("target", "land");
+            if (e.containsKey("core")) m.put("target", "territory");
+        }
         return m;
     }
 

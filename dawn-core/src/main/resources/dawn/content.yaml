@@ -16,7 +16,8 @@ rules:
   buildingEscalation: 1                   # each level a building already has adds 1 production to the next
   homeSlots: {farm: 2, mine: 2}           # farm and mine worker slots each player has before any territory
   startTerritories: 2                     # territories drawn from the world deck at the start
-  colonize:                               # settling a discovered land (paid by anyone, together)
+  faceUpLands: 2                          # face-up lands to settle; one taken is replaced from the world deck
+  colonize:                               # settling a face-up land with a Settle card (the player pays; teammates can give)
     costPerPlayer: {food: 2, production: 2}
     extraPerTerritoryPerPlayer: {production: 1}   # for each territory beyond the first 2
     territoriesBeforeExtra: 2
@@ -179,7 +180,9 @@ eras:
       shell_trading: 2
       gather_the_tribe: 2
       long_day: 1
-      send_scouts: 2
+      send_scouts: 1
+      settle_land: 3
+      core_territory: 1
       # responses
       rally_the_hunters: 2
       hide_in_the_caves: 1
@@ -199,8 +202,9 @@ eras:
       bountiful_season: 2
       wandering_sage: 1
       strangers_at_the_fire: 1
-      scouts_return: 2
+      scouts_return: 1
       rich_land_found: 1
+      hostile_tribes: 2
       dawn_of_agriculture: 1
   - id: ancient
     name: Ancient
@@ -229,6 +233,8 @@ eras:
       long_day: 1
       foraging: 1
       send_scouts: 1
+      settle_land: 3
+      core_territory: 2
       city_walls: 2
       bronze_levy: 1
       quarantine: 1
@@ -249,9 +255,11 @@ eras:
       rumbling_mountain: 1
       comet_sighted: 1
       failing_rains: 1
-      explorers: 2
+      explorers: 1
       great_expedition: 1
       rich_land_found: 1
+      hostile_tribes: 1
+      warlord: 2
       rise_of_empires: 1
 
 # The starting event deck: 2 per player, drawn from these (number = copies in the pool).
@@ -477,7 +485,18 @@ cards:
     type: action
     cost: {food: 1}
     effects: [{discover: 1}]
-    text: Pay 1 food. Draw a land from the world deck onto the frontier.
+    text: Pay 1 food. Turn another land from the world deck face up.
+  settle_land:
+    name: Settle
+    type: action
+    effects: [{settle: true}]
+    text: "Settle a face-up land: pay its cost and defeat its defenders (troops at least its enemy strength; you lose half of that). Teammates can give you resources and troops."
+  core_territory:
+    name: Fortify the Heartland
+    type: action
+    cost: {production: 2, culture: 1}
+    effects: [{core: true}]
+    text: Make a territory of the realm a core territory. If an invasion would take it, it loses its core status instead.
 
   # ------------------------------------------------------------------ responses (played when an event resolves)
   rally_the_hunters:
@@ -782,25 +801,37 @@ cards:
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: A new land is found and put on the frontier.
+    text: Another land from the world deck is turned face up.
   explorers:
     name: Explorers
     type: event
     category: discovery
     effects: [{discover: 1}]
-    text: A new land is found and put on the frontier.
+    text: Another land from the world deck is turned face up.
   great_expedition:
     name: Great Expedition
     type: event
     category: discovery
     effects: [{discover: 2}]
-    text: Two new lands are found and put on the frontier.
+    text: Two more lands from the world deck are turned face up.
+  hostile_tribes:
+    name: Hostile Tribes
+    type: event
+    category: frontier
+    effects: [{enemy: {each: 2}}]
+    text: Every face-up land gains 2 enemy strength.
+  warlord:
+    name: A Warlord Rises
+    type: event
+    category: frontier
+    effects: [{enemy: {one: 4}}]
+    text: A random face-up land gains 4 enemy strength.
   rich_land_found:
     name: Rich Land
     type: event
     category: discovery
     effects: [{discover: rich_land}]
-    text: "A rich land is found: settling it costs 2 settlers and 2 troops per player."
+    text: "A rich land is found, face up: settling it costs 2 settlers and 2 troops per player."
 
   # ------------------------------------------------------------------ crisis cards
   black_plague:

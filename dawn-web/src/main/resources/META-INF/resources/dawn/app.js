@@ -200,34 +200,18 @@ const slotText = slots => Object.entries(slots || {}).map(([b, n]) => `+${n} ${b
 
 function renderRealm() {
   const s = state;
-  const lands = s.realm.map(t => `<div class="cardx territory"><div class="type">Territory</div><div class="name">${esc(t.name)}</div>
+  const lands = s.realm.map(t => `<div class="cardx territory ${t.cored ? 'cored' : ''}"><div class="type">Territory${t.cored ? ' · core' : ''}</div><div class="name">${esc(t.name)}</div>
       <div class="text">${esc(t.text)}</div>${t.wonders.length ? `<div class="small">${t.wonders.map(w => `<span class="chip">★ ${esc(w)}</span>`).join('')}</div>` : ''}</div>`).join('');
-  const front = s.frontier.map(f => {
-    const need = RES.filter(k => f.cost[k] > 0);
-    const left = k => f.cost[k] - f.paid[k];
-    const form = `<div class="row small">${need.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" max="${left(k)}" value="0" data-keep="f-${f.id}-${k}" data-fres="${k}"></label>`).join('')}
-        ${f.population ? `<label style="margin:0">Settlers <input type="number" min="0" value="0" data-keep="f-${f.id}-pop" data-fpop></label>` : ''}
-        ${f.army ? `<label style="margin:0">Troops <input type="number" min="0" value="0" data-keep="f-${f.id}-army" data-farmy></label>` : ''}</div>
-      <div class="row"><button ${canAct() ? '' : 'disabled'} data-colonize="${f.id}">Send (1 action)</button></div>`;
-    const by = Object.entries(f.bySeat).map(([n, r]) => `<div class="small muted">${esc(n)}: ${resList(r)}</div>`).join('');
-    return `<div class="cardx frontier" data-f="${f.id}"><div class="type">Frontier</div><div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
-      <div class="small">Paid ${resList(f.paid)} of ${resList(f.cost)}${f.population ? ` · settlers ${f.populationPaid}/${f.population}` : ''}${f.army ? ` · troops ${f.armyPaid}/${f.army}` : ''}</div>${by}${form}</div>`;
-  }).join('');
+  const front = s.frontier.map(f => `<div class="cardx frontier"><div class="type">Face-up land${f.enemy ? ` · enemy strength ${f.enemy}` : ''}</div>
+      <div class="name">${esc(f.name)}</div><div class="text">${esc(f.text)}</div>
+      <div class="small">To settle: ${resList(f.cost)}${f.troops ? ` · ${f.troops} troops (you lose ${Math.ceil(f.enemy / 2) + (f.troops - f.enemy)})` : ''}${f.settlers ? ` · ${f.settlers} settlers` : ''}</div></div>`).join('');
   $('realmPanel').innerHTML = `<h2>The realm</h2>
-    <p class="muted small">Shared land. Each territory gives every player room for buildings and its bonus. A broken invasion costs a territory; with none left, the game is lost.
+    <p class="muted small">Shared land. Each territory gives every player room for buildings and its bonus. A broken invasion takes a territory (a core territory only loses its core status); with none left, the game is lost.
     World deck: ${s.worldDeck} lands · colonization value ${s.colonizationValue}.</p>
     <div class="cards">${lands}</div>
-    ${s.frontier.length ? `<h3 style="margin-top:.6rem">Frontier</h3><p class="muted small">Discovered lands. Pay together to settle them before the era ends.</p><div class="cards">${front}</div>` : ''}`;
+    <h3 style="margin-top:.6rem">Lands to settle</h3><p class="muted small">Play a Settle card to take one: you pay its cost and need troops at least its enemy strength. Teammates can give you resources and troops.</p>
+    <div class="cards">${front || '<p class="muted">None face up.</p>'}</div>`;
 }
-$('realmPanel').onclick = e => {
-  const b = e.target.closest('[data-colonize]'); if (!b) return;
-  const box = b.closest('[data-f]'), resources = {};
-  box.querySelectorAll('[data-fres]').forEach(i => { resources[i.dataset.fres] = Math.max(0, +i.value || 0); i.value = 0; });
-  const pop = box.querySelector('[data-fpop]'), army = box.querySelector('[data-farmy]');
-  send({ type: 'colonize', land: +b.dataset.colonize, resources, population: pop ? +pop.value || 0 : 0, army: army ? +army.value || 0 : 0 });
-  if (pop) pop.value = 0;
-  if (army) army.value = 0;
-};
 
 function renderWonders() {
   const s = state;
@@ -365,7 +349,10 @@ function renderHand() {
   const cards = p.hand.map(c => {
     const playable = c.type !== 'response';
     const give = others.length ? `<select data-keep="give-${c.id}" id="give-${c.id}">${others.map(o => `<option value="${o.seat}">${esc(o.name)}</option>`).join('')}</select><button class="tiny" data-givecard="${c.id}">Give</button>` : '';
-    return cardHtml(c, `<div class="actions">${playable ? `<button ${act && affordable(c.cost) ? '' : 'disabled'} data-play="${c.id}">Play (1 action)</button>` : '<span class="small muted">Play it when an event strikes.</span>'}
+    const opts = c.target === 'land' ? s.frontier.map(f => [f.id, f.name + (f.enemy ? ' (enemy ' + f.enemy + ')' : '')])
+      : c.target === 'territory' ? s.realm.filter(t => !t.cored).map(t => [t.id, t.name]) : null;
+    const pickTarget = opts ? `<select id="tgt-${c.id}" data-keep="tgt-${c.id}">${opts.map(([v, t]) => `<option value="${v}">${esc(t)}</option>`).join('')}</select>` : '';
+    return cardHtml(c, `<div class="actions">${pickTarget}${playable ? `<button ${act && affordable(c.cost) && (!opts || opts.length) ? '' : 'disabled'} data-play="${c.id}" data-target="${c.target || ''}">Play (1 action)</button>` : '<span class="small muted">Play it when an event strikes.</span>'}
       <button class="tiny" data-discard="${c.id}">Discard</button>${give}</div>`);
   }).join('');
   $('handPanel').innerHTML = `<h2>Your hand (${p.hand.length}/${p.handLimit})</h2>${over ? `<p class="small bad" style="color:var(--err)">Discard down to ${p.handLimit} before ending your turn.</p>` : ''}
@@ -373,7 +360,13 @@ function renderHand() {
 }
 $('handPanel').onclick = e => {
   const t = e.target.closest('button'); if (!t) return;
-  if (t.dataset.play) send({ type: 'play', card: +t.dataset.play });
+  if (t.dataset.play) {
+    const msg = { type: 'play', card: +t.dataset.play };
+    const sel = $('tgt-' + t.dataset.play);
+    if (t.dataset.target === 'land') msg.land = +sel.value;
+    if (t.dataset.target === 'territory') msg.territory = +sel.value;
+    send(msg);
+  }
   else if (t.dataset.discard) send({ type: 'discard', card: +t.dataset.discard });
   else if (t.dataset.givecard) send({ type: 'giveCard', card: +t.dataset.givecard, to: +$('give-' + t.dataset.givecard).value });
 };
@@ -388,7 +381,8 @@ function renderTeam() {
       ${o.techs.length || o.minorWonders.length ? `<div>${o.techs.map(t => `<span class="chip" title="${esc(t.text)}">${esc(t.name)}</span>`).join('')}${o.minorWonders.map(t => `<span class="chip">★ ${esc(t.name)}</span>`).join('')}</div>` : ''}
     </div>`).join('');
   const give = others.length ? `<h3 style="margin-top:.5rem">Give resources</h3>
-    <div class="row small">${RES.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" value="0" data-keep="g-${k}" data-gres="${k}"></label>`).join('')}</div>
+    <div class="row small">${RES.map(k => `<label class="res r-${k}" style="margin:0">${RES_SHORT[k]} <input type="number" min="0" value="0" data-keep="g-${k}" data-gres="${k}"></label>`).join('')}
+      <label style="margin:0">Troops <input type="number" min="0" value="0" data-keep="g-army" id="giveArmy"></label></div>
     <div class="row"><select id="giveTo" data-keep="giveTo">${others.map(o => `<option value="${o.seat}">${esc(o.name)}</option>`).join('')}</select><button data-give>Give (free)</button></div>` : '';
   $('teamPanel').innerHTML = `<h2>The tribe</h2>${list}${give}`;
 }
@@ -396,7 +390,8 @@ $('teamPanel').onclick = e => {
   if (!e.target.closest('[data-give]')) return;
   const resources = {};
   document.querySelectorAll('[data-gres]').forEach(i => { resources[i.dataset.gres] = Math.max(0, +i.value || 0); i.value = 0; });
-  send({ type: 'give', to: +$('giveTo').value, resources });
+  send({ type: 'give', to: +$('giveTo').value, resources, army: +$('giveArmy').value || 0 });
+  $('giveArmy').value = 0;
 };
 
 function renderDecks() {

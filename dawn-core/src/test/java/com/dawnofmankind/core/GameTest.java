@@ -116,25 +116,39 @@ class GameTest {
     }
 
     @Test
-    void discoveringAndColonizing() {
+    void settlingAFaceUpLand() {
         Game g = game(2, 11);
+        assertEquals(2, g.frontier.size(), "two lands face up at the start");
         Player p = g.players.get(g.currentPlayer);
         p.res.put(Res.FOOD, 50);
         p.res.put(Res.PRODUCTION, 50);
-        for (Game.CardInst c : g.eraDeck) {
-            if (c.def.id.equals("send_scouts")) {
-                p.hand.add(c);
-                g.act(p.seat, Map.of("type", "play", "card", c.id));
-                break;
-            }
-        }
-        assertEquals(1, g.frontier.size());
         Game.Frontier f = g.frontier.get(0);
-        Map<String, Object> pay = new java.util.HashMap<>();
-        for (Res r : Res.values()) pay.put(r.key(), f.cost.get(r));
-        g.act(p.seat, Map.of("type", "colonize", "land", f.land.id, "resources", pay));
+        f.enemy = 4;
+        Game.CardInst settle = card(g, "settle_land");
+        p.hand.add(settle);
+        assertThrows(GameException.class, () -> g.act(p.seat, Map.of("type", "play", "card", settle.id, "land", f.land.id)), "needs 4 troops");
+        p.army = 5;
+        g.act(p.seat, Map.of("type", "play", "card", settle.id, "land", f.land.id));
         assertEquals(3, g.realm.size());
-        assertTrue(g.frontier.isEmpty());
+        assertEquals(3, p.army, "lost half the enemy strength");
+        assertEquals(2, g.frontier.size(), "the taken land is replaced");
+    }
+
+    @Test
+    void coredTerritoryHoldsOnce() {
+        Game g = game(1, 12);
+        Player p = g.players.get(0);
+        p.res.put(Res.PRODUCTION, 10);
+        p.res.put(Res.CULTURE, 10);
+        Game.Territory t = g.realm.get(0);
+        Game.CardInst core = card(g, "core_territory");
+        p.hand.add(core);
+        g.act(0, Map.of("type", "play", "card", core.id, "territory", t.id));
+        assertTrue(t.cored);
+    }
+
+    static Game.CardInst card(Game g, String id) {
+        return new Game.CardInst(100_000 + id.hashCode() % 1000, C.cards.get(id));
     }
 
     @Test
