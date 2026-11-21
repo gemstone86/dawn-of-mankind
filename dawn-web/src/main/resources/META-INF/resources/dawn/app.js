@@ -168,7 +168,7 @@ function renderStatus() {
     : s.phase === 'events' ? 'Events' : myTurn() ? `<span class="turn">Your turn — ${s.actionsLeft} action${s.actionsLeft === 1 ? '' : 's'} left</span>` : `${esc(cur.name)}'s turn`;
   $('status').innerHTML = `<span>${esc(s.era)} era (${s.eraIndex + 1}/${s.eraCount})</span><span>Round <b>${s.round}</b></span>
     <span>${phase}</span><span>Stability <b class="${s.stability <= 3 ? 'bad' : ''}">${s.stability}</b></span>
-    <span>Health <b>${s.health}</b></span><span>Era deck <b>${s.eraDeck}</b></span><span>Wonder points <b>${s.score}</b></span>
+    <span>Health <b>${s.health}</b></span><span class="${s.threat ? 'threat' : ''}">Enemies massing <b>${s.threat}</b></span><span>Era deck <b>${s.eraDeck}</b></span><span>Points <b>${s.score}</b></span>
     <span class="muted small">Room ${esc(room.code)}</span>`;
 }
 
@@ -255,7 +255,7 @@ function renderWonders() {
       <div class="small">Paid ${resList(w.paid, { all: false })} of ${resList(w.cost)}</div><div class="prog"><div style="width:${total ? 100 * paid / total : 0}%"></div></div>${by}${form}</div>`;
   }).join('');
   const built = s.builtWonders.length ? `<p class="small">Built: ${s.builtWonders.map(w => `<span class="chip">${esc(w.name)} (${w.victoryPoints})</span>`).join('')}</p>` : '';
-  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Each stands in a territory: lose the territory, lose the wonder. Their points are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
+  $('wonderPanel').innerHTML = `<h2>Great wonders</h2><p class="muted small">Great wonders turn up in the queue; take one to start building it together. Each stands in a territory: lose the territory, lose the wonder. Their points, plus 1 per territory, are your final score. Unfinished wonders are lost when the era ends (half is returned).</p>${built}<div class="cards">${list || '<p class="muted">None under construction.</p>'}</div>`;
 }
 $('wonderPanel').onclick = e => {
   const b = e.target.closest('[data-wonder]'); if (!b) return;
@@ -297,6 +297,7 @@ function renderEvents() {
       <div class="actions">${controls}</div><div class="readylist">${waiting.length ? 'Waiting for: ' + waiting.join(', ') : ''}</div>`, 'pending');
   } else {
     html += `<p class="muted small">After everyone's turn, as many events are drawn from the event deck as the future deck holds (now <b>${s.futureEvents}</b>).</p>`;
+    if (s.threat) html += `<p class="threat-note">⚔ ${s.threat} enemies are massing. The next invasion will be ${s.threat} stronger (players × territories = ${s.players.length * s.realm.length}, so ${s.players.length * s.realm.length + s.threat} now).</p>`;
   }
   if (s.persistentEvents.length) {
     html += '<h3>Lasting events</h3><div class="cards">' + s.persistentEvents.map(c => cardHtml(c,
@@ -449,7 +450,7 @@ function renderDecks() {
 function renderLog() {
   const box = $('logBox');
   const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 30;
-  box.innerHTML = state.log.map(l => `<div class="${l.startsWith('—') ? 'round' : ''} ${l.startsWith('CRISIS') ? 'crisis' : ''}">${esc(l)}</div>`).join('');
+  box.innerHTML = state.log.map(l => `<div class="${l.startsWith('—') ? 'round' : ''} ${l.startsWith('CRISIS') || l.startsWith('HOSTILITY') ? 'crisis' : ''}">${esc(l)}</div>`).join('');
   if (atBottom || !box.dataset.seen) { box.scrollTop = box.scrollHeight; box.dataset.seen = '1'; }
 }
 
@@ -479,7 +480,8 @@ function renderOver() {
   $('overBox').innerHTML = `<div class="result ${s.result}">${s.result === 'victory' ? 'Victory' : 'Defeat'}</div>
     <p>${esc(s.endReason)}</p>
     <p>Great wonders built: ${s.builtWonders.length ? s.builtWonders.map(w => `<span class="chip">${esc(w.name)} — ${w.victoryPoints}</span>`).join('') : 'none'}</p>
-    <p class="result" style="font-size:1.6rem">${s.score} wonder points</p>
+    <p>Territories held: ${s.territoryPoints} (1 point each)</p>
+    <p class="result" style="font-size:1.6rem">${s.score} points</p>
     <p class="muted small">Reached the ${esc(s.era)} era in round ${s.round}.</p>
     <div class="row"><button id="closeOver">Look at the board</button><a href="./"><button class="primary">New game</button></a></div>`;
   $('over').hidden = false;

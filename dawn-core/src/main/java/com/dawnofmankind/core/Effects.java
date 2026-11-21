@@ -26,7 +26,7 @@ public final class Effects {
     private Effects() {}
 
     static final Set<String> IMMEDIATE = Set.of("gain", "lose", "population", "army", "stability", "health", "draw",
-            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover", "enemy", "settle", "core", "removeLand", "coreTerritory");
+            "extraActions", "addCrisis", "destroyBuilding", "freeBuilding", "discover", "enemy", "settle", "core", "removeLand", "coreTerritory", "hostility");
     static final Set<String> LASTING = Set.of("income", "perWorker", "handLimit", "actionsPerTurn", "raidDefense",
             "mitigate", "buildDiscount", "sharedPool", "victoryPoints", "invasionDefense", "faceUpLands", "settleDiscount");
     static final Set<String> RESPONSE = Set.of("defense", "halve", "cancel", "healthBonus");

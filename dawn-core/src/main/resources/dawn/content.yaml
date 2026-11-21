@@ -62,10 +62,10 @@ buildings:
     perWorker: {research: 1, culture: 1}
     text: Each worker produces 1 research and 1 culture.
 
-# Great wonders are the measure of a game: the final score is the sum of their victory points.
+# Great wonders are the measure of a game: the final score is the sum of their victory points, +1 per territory held.
 # Each is also a card (same id) listed in an era below: when a player picks or draws it, it goes on the board.
 # Bonuses and points are placeholders, to be reworked.
-# Cost is per player, sized so a wonder takes the whole team about 3.5 rounds of its output (a player makes roughly
+# Cost is per player, sized so a wonder takes the whole team 4-5 rounds of its output (a player makes roughly
 # 3-4 production and some culture per round in the Prehistoric era, a little more in the Ancient era).
 # The world deck: the shared realm's land. "slots" are extra worker slots for every player's buildings of that type;
 # lose the territory and the slots (and any great wonder standing there) are lost. Effects apply to every player.
@@ -137,42 +137,42 @@ greatWonders:
   stonehenge:
     name: Stonehenge
     era: prehistoric
-    costPerPlayer: {production: 9, culture: 3}
+    costPerPlayer: {production: 12, culture: 4}
     effects: [{actionsPerTurn: 1}]
     victoryPoints: 2
     text: Every player gets +1 action per turn.
   pyramids:
     name: The Pyramids
     era: ancient
-    costPerPlayer: {production: 11, culture: 4}
+    costPerPlayer: {production: 15, culture: 5}
     effects: [{stability: 2}, {income: {culture: 2}}, {coreTerritory: 1}]
     victoryPoints: 2
     text: +2 Stability, every player +2 culture per turn, +2 victory points. Cores a territory (the one it stands in).
   hanging_gardens:
     name: The Hanging Gardens
     era: ancient
-    costPerPlayer: {production: 8, food: 8}
+    costPerPlayer: {production: 11, food: 10}
     effects: [{perWorker: {building: farm, food: 1}}, {income: {culture: 1}}]
     victoryPoints: 2
     text: Every farmer +1 food, every player +1 culture per turn.
   great_library:
     name: The Great Library
     era: ancient
-    costPerPlayer: {production: 7, culture: 4, research: 3}
+    costPerPlayer: {production: 10, culture: 5, research: 4}
     effects: [{income: {research: 4}}, {handLimit: 1}]
     victoryPoints: 2
     text: Every player +4 research per turn and +1 max hand size.
   great_lighthouse:
     name: The Great Lighthouse
     era: ancient
-    costPerPlayer: {production: 9, food: 3}
+    costPerPlayer: {production: 12, food: 4}
     effects: [{faceUpLands: 1}, {settleDiscount: {production: 2}}, {coreTerritory: 1}]
     victoryPoints: 2
     text: One more land lies face up. Settling any land costs 2 production less. Cores a territory (the one it stands in).
   colossus:
     name: The Colossus
     era: ancient
-    costPerPlayer: {production: 11, influence: 2}
+    costPerPlayer: {production: 15, influence: 3}
     effects: [{perWorker: {building: mine, production: 1}}]
     victoryPoints: 2
     text: Every miner +1 production.
@@ -183,6 +183,9 @@ eras:
     cards:
       # great wonders (taking one puts it on the board for the team to build)
       stonehenge: 1
+      # hostility: triggers when revealed, adding enemies to the next invasion
+      hostility_1: 3
+      hostility_2: 3
       # technologies
       fire: 1
       stone_tools: 1
@@ -239,6 +242,9 @@ eras:
       great_library: 1
       great_lighthouse: 1
       colossus: 1
+      hostility_2: 2
+      hostility_3: 2
+      hostility_5: 1
       agriculture: 1
       bronze_working: 1
       writing: 1
@@ -620,7 +626,7 @@ cards:
     kind: invasion
     strength: {perPlayerPerTerritory: 1}
     perShortfall: [{lose: {food: 1}}]
-    text: Invasion, strength = players × territories. If it breaks through, a territory is lost and each point short costs every player 1 food.
+    text: Invasion, strength = players × territories + the massed enemies. If it breaks through, a territory is lost and each point short costs every player 1 food.
   harsh_winter:
     name: Harsh Winter
     type: event
@@ -734,7 +740,7 @@ cards:
     kind: invasion
     strength: {perPlayerPerTerritory: 1}
     perShortfall: [{lose: {food: 1, production: 1}}]
-    text: Invasion, strength = players × territories. If it breaks through, a territory is lost and each point short costs every player 1 food and 1 production.
+    text: Invasion, strength = players × territories + the massed enemies. If it breaks through, a territory is lost and each point short costs every player 1 food and 1 production.
   drought:
     name: Drought
     type: event
@@ -879,6 +885,28 @@ cards:
     category: discovery
     effects: [{discover: fertile_delta}]
     text: "A Fertile Delta is found: settling it takes 4 food, 2 production and 1 settler per player, at once."
+
+  # ------------------------------------------------------------------ hostility (trigger at once when revealed)
+  hostility_1:
+    name: Raiding Parties Gather
+    type: hostility
+    effects: [{hostility: 1}]
+    text: +1 enemy massing. The next invasion brings them.
+  hostility_2:
+    name: Warbands Gather
+    type: hostility
+    effects: [{hostility: 2}]
+    text: +2 enemies massing. The next invasion brings them.
+  hostility_3:
+    name: An Army Masses
+    type: hostility
+    effects: [{hostility: 3}]
+    text: +3 enemies massing. The next invasion brings them.
+  hostility_5:
+    name: A Great Horde Gathers
+    type: hostility
+    effects: [{hostility: 5}]
+    text: +5 enemies massing. The next invasion brings them.
 
   # ------------------------------------------------------------------ crisis cards
   black_plague:

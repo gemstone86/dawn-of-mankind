@@ -80,7 +80,10 @@ too, and they draw again). Blind-drawn events also go face down to the future de
 is discarded. The starting event deck holds 2 Prehistoric events per player.
 
 **Raids** strike one player, who defends alone (army + raid defense + response cards). **Invasions** strike
-everyone; their strength is players × territories, and each player decides how many troops to send. An invasion
+everyone; their strength is players × territories plus the **enemies massing**, and each player decides how many
+troops to send. **Hostility cards** (Prehistoric: 3 × +1, 3 × +2; Ancient: 2 × +2, 2 × +3, 1 × +5) trigger the moment
+they are revealed from the era deck, adding to the enemies massing, which everyone can see; the next invasion brings
+them all and the count starts again. An invasion
 that breaks through takes a random territory: every player's buildings shrink to what the remaining land allows, and
 a great wonder standing there is lost. **Crisis cards** (Black Plague, Supervolcano Eruption,
 Meteor Impact, Climate Change) are added to the future deck by certain events and when a player's Population hits
@@ -92,8 +95,8 @@ Meteor Impact, Climate Change) are added to the future deck by certain events an
 **The game** is lost if Stability reaches 0, everyone's Population is gone or the realm has no territory left, and
 won by finishing the last era.
 The score is the victory points of the **great wonders** built (Stonehenge, the Pyramids, the Hanging Gardens, the
-Great Library, the Great Lighthouse, the Colossus). Great wonders are cards in the era decks: whoever picks or draws one puts it on the
-board, and everyone can contribute to it. Each costs about 3.5 rounds of the whole team's output (its cost is per
+Great Library, the Great Lighthouse, the Colossus), plus 1 per territory of the realm. Great wonders are cards in the era decks: whoever picks or draws one puts it on the
+board, and everyone can contribute to it. Each costs about 4–5 rounds of the whole team's output (its cost is per
 player) and, when finished, stands in a territory of the team's choice. The Epic (a minor wonder) is a card a player plays for themselves. Wonder
 bonuses and points in content.yaml are placeholders.
 

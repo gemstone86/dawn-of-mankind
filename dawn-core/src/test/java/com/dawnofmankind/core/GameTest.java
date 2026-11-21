@@ -85,6 +85,24 @@ class GameTest {
     }
 
     @Test
+    void hostilityMassesEnemiesForTheNextInvasion() {
+        Game g = game(2, 16);
+        int before = g.threat;
+        g.eraDeck.add(0, card(g, "hostility_2"));
+        Player p = g.players.get(g.currentPlayer);
+        p.hand.add(card(g, "storytelling"));
+        g.act(p.seat, Map.of("type", "play", "card", p.hand.get(p.hand.size() - 1).id)); // draws 2: reveals the hostility card
+        assertEquals(before + 2, g.threat);
+        for (Game.CardInst c : p.hand) assertFalse(c.def.type == Content.CardType.HOSTILITY, "hostility never stays in a hand");
+    }
+
+    @Test
+    void territoriesScore() {
+        Game g = game(1, 17);
+        assertEquals(g.realm.size(), g.score());
+    }
+
+    @Test
     void growthGetsDearer() {
         Game g = game(1, 9);
         Player p = g.players.get(0);

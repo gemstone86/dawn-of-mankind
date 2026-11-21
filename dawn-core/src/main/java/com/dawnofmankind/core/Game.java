@@ -131,6 +131,8 @@ public final class Game {
     public int currentPlayer = 0;
     public int actionsLeft;
     public int stability, health;
+    /** Enemies massing from hostility cards; the next invasion adds them to its strength. */
+    public int threat;
 
     public final List<CardInst> eraDeck = new ArrayList<>();
     public final List<Slot> queue = new ArrayList<>();
@@ -223,7 +225,10 @@ public final class Game {
         boolean firstPass = true;
         while (eraDeck.size() < size && !pool.isEmpty()) {
             if (bag.isEmpty()) {
-                for (CardInst c : pool) if (firstPass || c.def.type != CardType.GREAT_WONDER) bag.add(inst(c.def));
+                // great wonders and hostility cards come in the numbers listed, once per deck
+                for (CardInst c : pool) {
+                    if (firstPass || (c.def.type != CardType.GREAT_WONDER && c.def.type != CardType.HOSTILITY)) bag.add(inst(c.def));
+                }
                 Collections.shuffle(bag, rng);
                 firstPass = false;
                 if (bag.isEmpty()) break;
@@ -327,8 +332,8 @@ public final class Game {
 
     /** Draws for a player: events go to the future deck and the player draws again. Returns the card kept, or null. */
     private CardInst drawFromEraDeck(Player p) {
-        while (!eraDeck.isEmpty()) {
-            CardInst c = eraDeck.remove(0);
+        CardInst c;
+        while ((c = nextFromEraDeck()) != null) {
             if (c.def.isEvent()) {
                 futureEvents.add(c);
                 log(p.name + " drew an event; it goes face down into the future deck.");
@@ -371,7 +376,8 @@ public final class Game {
             CardDef d = e.def;
             int target = -1;
             if ("one".equals(d.target) || "raid".equals(d.kind) || "opportunity".equals(d.kind)) target = rng.nextInt(players.size());
-            pending = new Pending(e, target, d.strength(players.size(), realm.size()));
+            int strength = d.strength(players.size(), realm.size()) + ("invasion".equals(d.kind) ? threat : 0);
+            pending = new Pending(e, target, strength);
             for (Player p : players) pending.ready.put(p.seat, p.away);
             log("Event: " + d.name + (target >= 0 ? " (" + players.get(target).name + ")" : "") + " — " + d.text);
             // a land found by this event is shown now, so the team can pay for it before the event resolves
@@ -442,11 +448,28 @@ public final class Game {
     }
 
     private void refillQueue() {
-        while (queue.size() < queueSize() && !eraDeck.isEmpty()) {
-            CardInst c = eraDeck.remove(0);
-            CardInst under = c.def.isEvent() && !eraDeck.isEmpty() ? eraDeck.remove(0) : null;
+        while (queue.size() < queueSize()) {
+            CardInst c = nextFromEraDeck();
+            if (c == null) break;
+            CardInst under = c.def.isEvent() ? nextFromEraDeck() : null;
             queue.add(0, new Slot(c, under));
         }
+    }
+
+    /**
+     * Takes the top card of the era deck. Hostility cards never stay anywhere: as soon as one is revealed it adds
+     * its enemies to the threat massing against the realm, and the next card is taken.
+     */
+    private CardInst nextFromEraDeck() {
+        while (!eraDeck.isEmpty()) {
+            CardInst c = eraDeck.remove(0);
+            if (c.def.type != CardType.HOSTILITY) return c;
+            int n = c.def.effects.stream().filter(e -> e.containsKey("hostility")).mapToInt(e -> Y.toInt(e.get("hostility"))).sum();
+            threat += n;
+            pastEvents.add(c);
+            log("HOSTILITY: " + c.def.name + " — +" + n + " enemies massing (now " + threat + "). The next invasion brings them.");
+        }
+        return null;
     }
 
     // ------------------------------------------------------------------------------------------------ actions
@@ -597,7 +620,7 @@ public final class Game {
         while (under != null && under.def.isEvent()) {
             futureEvents.add(under);
             log("The face-down card was another event; it goes face down into the future deck.");
-            under = eraDeck.isEmpty() ? null : eraDeck.remove(0);
+            under = nextFromEraDeck();
         }
         if (under != null) take(p, under);
     }
@@ -1090,6 +1113,10 @@ public final class Game {
 
     private void invasion(Pending pe, double factor) {
         CardDef d = pe.event.def;
+        if (threat > 0) {
+            log("The " + threat + " massed enemies join the invasion.");
+            threat = 0;
+        }
         int sent = pe.troops.values().stream().mapToInt(Integer::intValue).sum();
         int total = sent + pe.defenseBonus + civMods().invasionDefense;
         int s = pe.strength;
@@ -1351,9 +1378,9 @@ public final class Game {
         return content.rules.handLimit + mods(p).handLimit;
     }
 
-    /** The final score: victory points from the great wonders the team built. */
+    /** The final score: victory points from the great wonders the team built, +1 per territory of the realm. */
     public int score() {
-        int vp = 0;
+        int vp = realm.size();
         for (WonderDef w : builtWonders) vp += w.victoryPoints;
         return vp;
     }

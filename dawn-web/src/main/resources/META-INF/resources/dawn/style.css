@@ -31,6 +31,8 @@ label { display: block; font-size: .85rem; color: var(--bone-dim); margin: .6rem
 .status b { color: var(--brass); font-weight: 500; }
 .status .turn { color: var(--moss); font-weight: 700; }
 .status .bad { color: var(--err); }
+.status .threat b { color: var(--err); }
+.threat-note { color: var(--err); font-size: .9rem; margin: .3rem 0; }
 
 .start .lead { text-align: center; font: italic 1.1rem var(--serif); color: var(--bone-dim); margin: 2.5rem 1rem 0; }
 .card { border: 1px solid var(--line); border-radius: 14px; background: rgba(38,49,63,.85); padding: 1rem 1.3rem; }

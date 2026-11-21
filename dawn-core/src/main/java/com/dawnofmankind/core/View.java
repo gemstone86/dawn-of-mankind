@@ -33,6 +33,8 @@ public final class View {
         v.put("actionsLeft", g.actionsLeft);
         v.put("stability", g.stability);
         v.put("health", g.health);
+        v.put("threat", g.threat);
+        v.put("territoryPoints", g.realm.size());
         v.put("you", seat);
         v.put("result", g.result);
         v.put("endReason", g.endReason);
